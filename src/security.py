@@ -63,10 +63,10 @@ def validate_file_size(data: bytes) -> str | None:
 
 
 def strip_injected_scripts(html: str) -> str:
-    """去掉编辑器/演示器注入的 script 块, 保留原始内容"""
-    # 匹配新标记 (ppt-editor / ppt-presenter) 和旧标记 (编辑器)
+    """去掉编辑器/演示器/核心注入的 script 块, 保留原始内容"""
+    # 匹配新标记 (ppt-core/ppt-editor/ppt-presenter) 和旧标记 (编辑器)
     return re.sub(
-        r'<!-- HTML Point (?:ppt-editor|ppt-presenter|编辑器).*?</script>\s*',
+        r'<!-- HTML Point (?:ppt-core|ppt-editor|ppt-presenter|编辑器).*?</script>\s*',
         '', html, flags=re.S
     )
 
@@ -74,3 +74,53 @@ def strip_injected_scripts(html: str) -> str:
 def strip_all_scripts(html: str) -> str:
     """彻底去掉所有 <script> 标签 (用于展示上传的外部HTML时防XSS)"""
     return re.sub(r'<script[^>]*>.*?</script>', '', html, flags=re.S | re.I)
+
+
+# ── 白名单: 演示稿内部脚本的特征模式 ──────────────────────
+# 命中任一模式则保留该 <script> 块 (认为是演示稿自带的合法功能)
+_SAFE_SCRIPT_PATTERNS = [
+    r'function\s+go\s*\(',       # 导航引擎 go()
+    r'__currentSlideIndex',      # 导航状态
+    r'playSlide',                # 动画播放
+    r'RECIPES',                  # 动画配方
+    r'motion-ready',             # 动画激活类
+    r'__lowPowerMode',           # 低功耗模式
+    r'u_resolution',             # WebGL 背景
+    r'ascii-bg',                 # Canvas 点阵背景
+    r'lucide',                   # 图标库
+    r'\bimport\s*\(',            # ES module 动态导入 (Motion One)
+]
+
+# 黑名单: 必须删除的脚本特征 (即使命中白名单也删)
+_UNSAFE_SCRIPT_PATTERNS = [
+    r'__PPT_EDITOR_LOADED__',    # 旧版嵌入式编辑器 (与新版冲突)
+]
+
+
+def strip_scripts_whitelist(html: str) -> str:
+    """白名单模式清理脚本: 保留演示稿内部功能脚本, 删除旧编辑器和外部风险脚本。
+
+    策略:
+      1. 先删已注入的 HTML Point 块 (防重复)
+      2. 遍历每个 <script> 块:
+         - 命中黑名单 → 删除
+         - 命中白名单 → 保留 (演示稿自带的导航/动画/背景)
+         - 都没命中 → 删除 (未知外部脚本, 防 XSS)
+    """
+    # 先清理已注入块
+    html = strip_injected_scripts(html)
+
+    def _classify(match):
+        block = match.group(0)
+        # 黑名单优先: 旧编辑器一定删
+        for pat in _UNSAFE_SCRIPT_PATTERNS:
+            if re.search(pat, block):
+                return ''
+        # 白名单: 演示稿内部功能保留
+        for pat in _SAFE_SCRIPT_PATTERNS:
+            if re.search(pat, block):
+                return block
+        # 既不在白名单也不在黑名单 → 删除 (安全默认)
+        return ''
+
+    return re.sub(r'<script[^>]*>.*?</script>', _classify, html, flags=re.S | re.I)

@@ -246,43 +246,10 @@ function toggleFullscreen(){
 }
 
 // ═══════════════════════════════════════════════════════════════
-// 8.5. 内置导航引擎 (fallback)
-// 当演示稿自带 script 被 strip_all_scripts 移除后, go() 不存在,
-// presenter 自带翻页引擎保证演示能正常翻页。
+// 8.5. 公共模块 (导航+动画 fallback 由 core.js 提供)
 // ═══════════════════════════════════════════════════════════════
-function setupBuiltinNav(){
-  if(typeof window.go==='function'&&!window.go.__pptBuiltin)return;
-  const deck=document.getElementById('deck');
-  if(!deck)return;
-  const slides=deck.querySelectorAll(':scope > section.slide');
-  const total=slides.length;
-  if(!total)return;
-
-  let idx=0,lock=false;
-  window.__currentSlideIndex=0;
-  if(!deck.style.width||deck.style.width==='10000vw')deck.style.width=(total*100)+'vw';
-
-  const go=function(n){
-    if(lock)return;
-    idx=Math.max(0,Math.min(total-1,n));
-    window.__currentSlideIndex=idx;
-    deck.style.transform='translateX('+(-idx*100)+'vw)';
-    const nav=document.getElementById('nav');
-    if(nav)nav.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
-    lock=true;setTimeout(()=>lock=false,700);
-  };
-  go.__pptBuiltin=true;
-  window.go=go;
-
-  // 构建导航点
-  const nav=document.getElementById('nav');
-  if(nav&&!nav.children.length){
-    slides.forEach((s,i)=>{
-      const b=document.createElement('button');b.className='dot';b.dataset.i=i;
-      b.onclick=()=>go(i);nav.appendChild(b);
-    });
-  }
-}
+// setupBuiltinNav + setupBuiltinAnim 已提取到 web/core.js,
+// init() 调用 __pptCore.setup() — 若演示稿自带 go()/playSlide 则自动让位。
 
 // ═══════════════════════════════════════════════════════════════
 // 9. 更新页码 + 导航钩子
@@ -304,63 +271,6 @@ function hookNavigation(){
   };
   wrapped.__pptHooked=true;
   window.go=wrapped;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 9.5. 内置动画引擎 (fallback)
-// 演示稿原本用 Motion One + recipe 播放入场动画, 但被 strip 删除。
-// 这里用原生 Web Animations API 实现轻量替代。
-// ═══════════════════════════════════════════════════════════════
-function setupBuiltinAnim(){
-  if(typeof window.__playSlide==='function'&&!window.__playSlide.__pptBuiltin)return;
-  const EASE=[0,0,.3,1];
-  const slides=[...document.querySelectorAll('#deck > section.slide')];
-  if(!slides.length)return;
-  document.body.classList.add('motion-ready');
-
-  const ANIM_MAP={
-    line:{opacity:[0,1],y:[10,0]},up:{opacity:[0,1],y:[20,0]},down:{opacity:[0,1],y:[-20,0]},
-    left:{opacity:[0,1],x:[-24,0]},right:{opacity:[0,1],x:[24,0]},
-    kicker:{opacity:[0,1],y:[8,0]},title:{opacity:[0,1],y:[16,0]},
-    bottom:{opacity:[0,1],y:[14,0]},lead:{opacity:[0,1],y:[12,0]},
-    img:{opacity:[0,1],scale:[.96,1]},bars:{opacity:[0,1],scaleY:[.6,1]},
-    kpi:{opacity:[0,1],y:[12,0]},hero:{opacity:[0,1],scale:[.92,1]},
-  };
-  const DEFAULT_ANIM={opacity:[0,1],y:[12,0]};
-
-  function playSlide(i){
-    const slide=slides[i];if(!slide)return;
-    slide.querySelectorAll('[data-anim]').forEach(el=>{
-      el.getAnimations&&el.getAnimations().forEach(a=>a.cancel());
-      el.style.opacity='';el.style.transform='';
-    });
-    const elems=[...slide.querySelectorAll('[data-anim]')];
-    elems.forEach((el,k)=>{
-      const type=el.getAttribute('data-anim');
-      const params=ANIM_MAP[type]||DEFAULT_ANIM;
-      const kf={};
-      Object.entries(params).forEach(([prop,[from,to]])=>{
-        if(prop==='x')kf.transform=['translateX('+from+'px)','translateX('+to+'px)'];
-        else if(prop==='y')kf.transform=(kf.transform?[kf.transform[0],'translateY('+to+'px)']:['translateY('+from+'px)','translateY('+to+'px)']);
-        else if(prop==='scale')kf.transform=(kf.transform?[kf.transform[0],'scale('+to+')']:['scale('+from+')','scale('+to+')']);
-        else if(prop==='scaleY')kf.transform=(kf.transform?[kf.transform[0],'scaleY('+to+')']:['scaleY('+from+')','scaleY('+to+')']);
-        else kf[prop]=[from,to];
-      });
-      try{el.animate(kf,{duration:600,delay:k*80,easing:'cubic-bezier('+EASE.join(',')+')',fill:'forwards'});}catch(e){}
-    });
-    slide.querySelectorAll('.tl-node,.bar-tower,.kpi-cell,.sub-card,.col').forEach((el,k)=>{
-      if(el.closest('[data-anim]'))return;
-      try{el.animate({opacity:[0,1],y:[10,0]},{duration:500,delay:k*60,easing:'cubic-bezier('+EASE.join(',')+')',fill:'forwards'});}catch(e){}
-    });
-  }
-  playSlide.__pptBuiltin=true;
-  window.__playSlide=playSlide;
-
-  const origGo=window.go;
-  if(origGo){
-    window.go=function(n){origGo(n);const idx=window.__currentSlideIndex||0;setTimeout(()=>playSlide(idx),450);};
-  }
-  setTimeout(()=>playSlide(window.__currentSlideIndex||0),300);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -411,8 +321,7 @@ function bindKeys(){
 // 11. 初始化
 // ═══════════════════════════════════════════════════════════════
 function init(){
-  setupBuiltinNav();
-  setupBuiltinAnim();
+  if(window.__pptCore)window.__pptCore.setup();
   buildUI();
   hookNavigation();
   bindKeys();

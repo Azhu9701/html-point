@@ -9,7 +9,7 @@ from pathlib import Path
 from src.app import Handler, PRESENTATIONS, DEMO_SRC
 from src.storage import copy_demo
 
-PORT = 3099
+PORT = int(__import__("os").environ.get("HTML_POINT_PORT", "3099"))
 
 
 def main():

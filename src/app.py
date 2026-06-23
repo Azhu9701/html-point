@@ -12,6 +12,7 @@ PRESENTATIONS = ROOT / "presentations"
 TEMPLATES_DIR = ROOT / "templates"
 WEB_DIR = ROOT / "web"
 EDITOR_JS = WEB_DIR / "editor.js"
+CORE_JS = WEB_DIR / "core.js"
 PRESENTER_JS = WEB_DIR / "presenter.js"
 INDEX_HTML = WEB_DIR / "index.html"
 DEMO_SRC = ROOT.parent / "2026机器人入职各行各业-演示.html"
@@ -84,10 +85,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     return self._send(404, f"文件 {file_name} 不存在")
 
                 html = dest.read_text(encoding="utf-8")
-                # 净化 (去外部 script)
-                html = security.strip_all_scripts(html)
-                # 注入编辑器
-                html = editor_injector.inject(html, str(EDITOR_JS))
+                # 白名单净化: 保留演示稿内部脚本(导航/动画/背景), 删旧编辑器+外部风险
+                html = security.strip_scripts_whitelist(html)
+                # 注入 core.js (公共导航+动画 fallback) + 编辑器
+                if CORE_JS.exists():
+                    html = editor_injector.inject(html, str(CORE_JS), marker="ppt-core")
+                html = editor_injector.inject(html, str(EDITOR_JS), marker="ppt-editor")
                 return self._send(200, html)
 
             return self._send(400, "缺少 file 或 template 参数")
@@ -102,12 +105,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 return self._send(404, "文件不存在")
 
             html = dest.read_text(encoding="utf-8")
-            # 安全: 剥离外部 script 标签
-            html = security.strip_all_scripts(html)
+            # 白名单净化: 保留演示稿内部脚本(导航/动画/背景), 删旧编辑器+外部风险
+            html = security.strip_scripts_whitelist(html)
             # 注入隐藏编辑器 UI 的样式
             hide_css = "<style>#ppt-editor-bar,#ppt-sidebar,#ppt-inspector,#ppt-zoom-bar,#ppt-toast,.ppt-page-controls,.ppt-drag-handle,#ppt-bar,#ppt-sb,#ppt-in,#ppt-gd,#ppt-zm,#ppt-to{display:none!important} body.ppt-editing .slide{padding-left:5vw!important;padding-right:5vw!important} body.ppt-editing .canvas-card{margin-left:0!important;width:100vw!important}</style>"
             html = html.replace("</head>", hide_css + "</head>", 1)
-            # 注入演示增强脚本 (备注/计时器/逐条/PDF)
+            # 注入 core.js (公共导航+动画 fallback) + 演示增强
+            if CORE_JS.exists():
+                html = editor_injector.inject(html, str(CORE_JS), marker="ppt-core")
             if PRESENTER_JS.exists():
                 html = editor_injector.inject(html, str(PRESENTER_JS), marker="ppt-presenter")
             return self._send(200, html)
