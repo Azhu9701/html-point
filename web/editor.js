@@ -602,10 +602,31 @@ class PPTEditor{
     btn.classList.toggle('pri',!on);
     if(on){
       this._me();this._sb();
+      // 编辑模式: 拦截演示稿原生键盘导航, 避免编辑文字时翻页
+      this._blockNativeNav();
       toast('点文字编辑 · 点图拖拽缩放 · 右栏调属性 · 左栏拖拽排序',3500);
     }else{
       this._ue();hideGuides();this._clr();this._zoom(1);
+      this._unblockNativeNav();
     }
+  }
+
+  // 编辑模式时, 在捕获阶段拦截方向键/空格/PageUp/Down,
+  // 阻止演示稿自带的 go() 键盘导航在编辑文字时触发翻页
+  _blockNativeNav(){
+    if(this._navBlocker)return;
+    this._navBlocker=e=>{
+      if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight'&&e.key!=='ArrowUp'&&e.key!=='ArrowDown'&&
+         e.key!=='PageUp'&&e.key!=='PageDown'&&e.key!==' '&&e.key!=='Home'&&e.key!=='End')return;
+      const t=e.target;
+      if(t&&(t.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(t.tagName))){
+        e.stopImmediatePropagation();  // 阻止演示稿原生 go() 处理器
+      }
+    };
+    document.addEventListener('keydown',this._navBlocker,true);
+  }
+  _unblockNativeNav(){
+    if(this._navBlocker){document.removeEventListener('keydown',this._navBlocker,true);this._navBlocker=null;}
   }
 
   // ── 标记可编辑元素 ──
