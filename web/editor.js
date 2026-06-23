@@ -313,6 +313,98 @@ function setupBuiltinNav(){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 2.6. 内置动画引擎 (fallback)
+// 演示稿原本用 Motion One 库 + 18种 recipe 播放入场动画,
+// 但 strip_all_scripts 把这些 JS 都删了。
+// 这里用原生 Web Animations API (element.animate) 实现轻量替代,
+// 覆盖 data-anim 的 line/up/left/right 等主流模式。
+// ═══════════════════════════════════════════════════════════════
+function setupBuiltinAnim(){
+  // 如果演示稿自带 __playSlide (未被 strip), 不覆盖
+  if(typeof window.__playSlide==='function'&&!window.__playSlide.__pptBuiltin)return;
+
+  const EASE=[0,0,.3,1]; // expressive entry easing
+  const slides=[...document.querySelectorAll('#deck > section.slide')];
+  if(!slides.length)return;
+
+  // 激活 motion-ready 类 (CSS 据此初始隐藏 data-anim 元素)
+  document.body.classList.add('motion-ready');
+
+  // 每种 data-anim 值对应的入场参数
+  const ANIM_MAP={
+    line:    {opacity:[0,1],y:[10,0]},
+    up:      {opacity:[0,1],y:[20,0]},
+    down:    {opacity:[0,1],y:[-20,0]},
+    left:    {opacity:[0,1],x:[-24,0]},
+    right:   {opacity:[0,1],x:[24,0]},
+    kicker:  {opacity:[0,1],y:[8,0]},
+    title:   {opacity:[0,1],y:[16,0]},
+    bottom:  {opacity:[0,1],y:[14,0]},
+    lead:    {opacity:[0,1],y:[12,0]},
+    img:     {opacity:[0,1],scale:[.96,1]},
+    bars:    {opacity:[0,1],scaleY:[.6,1]},
+    kpi:     {opacity:[0,1],y:[12,0]},
+    hero:    {opacity:[0,1],scale:[.92,1]},
+  };
+  const DEFAULT_ANIM={opacity:[0,1],y:[12,0]};
+
+  function playSlide(i){
+    const slide=slides[i];if(!slide)return;
+    // 先复位: 清除残留的 inline style 和进行中的动画
+    slide.querySelectorAll('[data-anim]').forEach(el=>{
+      el.getAnimations&&el.getAnimations().forEach(a=>a.cancel());
+      el.style.opacity='';el.style.transform='';
+    });
+    // 收集当前 slide 的 [data-anim] 元素
+    const elems=[...slide.querySelectorAll('[data-anim]')];
+    // 按 DOM 顺序 stagger (每个延迟 80ms)
+    elems.forEach((el,k)=>{
+      const type=el.getAttribute('data-anim');
+      const params=ANIM_MAP[type]||DEFAULT_ANIM;
+      // 转换为 WAAPI keyframes
+      const kf={};
+      Object.entries(params).forEach(([prop,[from,to]])=>{
+        if(prop==='x')kf.transform=['translateX('+from+'px)','translateX('+to+'px)'];
+        else if(prop==='y')kf.transform=(kf.transform?[kf.transform[0],'translateY('+to+'px)']:['translateY('+from+'px)','translateY('+to+'px)']);
+        else if(prop==='scale')kf.transform=(kf.transform?[kf.transform[0],'scale('+to+')']:['scale('+from+')','scale('+to+')']);
+        else kf[prop]=[from,to];
+      });
+      // 合并 transform (x+y+scale 可能共存)
+      const hasTransform=kf.transform;
+      try{
+        el.animate(kf,{
+          duration:600,
+          delay:k*80,
+          easing:'cubic-bezier('+EASE.join(',')+')',
+          fill:'forwards'
+        });
+      }catch(e){/* WAAPI 不支持时直接显示*/}
+    });
+    // 同时处理特殊组件类 (柱状图、时间线节点等)
+    slide.querySelectorAll('.tl-node,.bar-tower,.kpi-cell,.sub-card,.col').forEach((el,k)=>{
+      if(el.closest('[data-anim]'))return; // 已被 data-anim 覆盖
+      try{
+        el.animate({opacity:[0,1],y:[10,0]},{duration:.5*1000,delay:k*60,easing:'cubic-bezier('+EASE.join(',')+')',fill:'forwards'});
+      }catch(e){}
+    });
+  }
+  playSlide.__pptBuiltin=true;
+  window.__playSlide=playSlide;
+
+  // 挂钩 go(): 翻页后播放新 slide 动画
+  const origGo=window.go;
+  if(origGo){
+    window.go=function(n){
+      origGo(n);
+      const idx=window.__currentSlideIndex||0;
+      setTimeout(()=>playSlide(idx),450); // 等 deck 过渡基本完成
+    };
+  }
+  // 首次播放
+  setTimeout(()=>playSlide(window.__currentSlideIndex||0),300);
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 3. PPTEditor 主类
 // ═══════════════════════════════════════════════════════════════
 class PPTEditor{
@@ -328,7 +420,7 @@ class PPTEditor{
     this.transition='fade'; // 默认切换效果
   }
 
-  start(){setupBuiltinNav();this._ui();this._bind();this._fn();this._injectTransitions();return this;}
+  start(){setupBuiltinNav();setupBuiltinAnim();this._ui();this._bind();this._fn();this._injectTransitions();return this;}
   stop(){
     this._toggle(0);
     document.querySelectorAll('.pc,.dh').forEach(c=>c.remove());
