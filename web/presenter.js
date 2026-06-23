@@ -246,6 +246,45 @@ function toggleFullscreen(){
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 8.5. 内置导航引擎 (fallback)
+// 当演示稿自带 script 被 strip_all_scripts 移除后, go() 不存在,
+// presenter 自带翻页引擎保证演示能正常翻页。
+// ═══════════════════════════════════════════════════════════════
+function setupBuiltinNav(){
+  if(typeof window.go==='function'&&!window.go.__pptBuiltin)return;
+  const deck=document.getElementById('deck');
+  if(!deck)return;
+  const slides=deck.querySelectorAll(':scope > section.slide');
+  const total=slides.length;
+  if(!total)return;
+
+  let idx=0,lock=false;
+  window.__currentSlideIndex=0;
+  if(!deck.style.width||deck.style.width==='10000vw')deck.style.width=(total*100)+'vw';
+
+  const go=function(n){
+    if(lock)return;
+    idx=Math.max(0,Math.min(total-1,n));
+    window.__currentSlideIndex=idx;
+    deck.style.transform='translateX('+(-idx*100)+'vw)';
+    const nav=document.getElementById('nav');
+    if(nav)nav.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
+    lock=true;setTimeout(()=>lock=false,700);
+  };
+  go.__pptBuiltin=true;
+  window.go=go;
+
+  // 构建导航点
+  const nav=document.getElementById('nav');
+  if(nav&&!nav.children.length){
+    slides.forEach((s,i)=>{
+      const b=document.createElement('button');b.className='dot';b.dataset.i=i;
+      b.onclick=()=>go(i);nav.appendChild(b);
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 9. 更新页码 + 导航钩子
 // ═══════════════════════════════════════════════════════════════
 function updatePageCount(){
@@ -258,7 +297,6 @@ function hookNavigation(){
   const orig=window.go;
   if(!orig||orig.__pptHooked)return;
   const wrapped=function(n){
-    // 如果有未揭示的 fragment，→ 键先揭示 fragment
     orig(n);
     updatePageCount();
     if(state.notesOn)updateNotes();
@@ -306,6 +344,7 @@ function bindKeys(){
 // 11. 初始化
 // ═══════════════════════════════════════════════════════════════
 function init(){
+  setupBuiltinNav();
   buildUI();
   hookNavigation();
   bindKeys();

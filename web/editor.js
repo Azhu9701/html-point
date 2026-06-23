@@ -257,6 +257,62 @@ body.pe #ppt-zm{display:flex}
 document.head.appendChild(Object.assign(document.createElement('style'),{textContent:CSS}));
 
 // ═══════════════════════════════════════════════════════════════
+// 2.5. 内置导航引擎 (fallback)
+// 当演示稿自带 script 被 strip_all_scripts 移除后, go() 不存在,
+// 编辑器自带一套兼容的翻页引擎, 保证侧栏点击/键盘能正常导航。
+// ═══════════════════════════════════════════════════════════════
+function setupBuiltinNav(){
+  // 如果演示稿自带 go() (未被 strip), 不覆盖
+  if(typeof window.go==='function'&&!window.go.__pptBuiltin)return;
+
+  const deck=document.getElementById('deck');
+  if(!deck)return;
+  const slides=deck.querySelectorAll(':scope > section.slide');
+  const total=slides.length;
+  if(!total)return;
+
+  let idx=0,lock=false;
+  window.__currentSlideIndex=0;
+  // 确保 deck 宽度足够容纳所有 slide
+  if(!deck.style.width||deck.style.width==='10000vw')deck.style.width=(total*100)+'vw';
+
+  const go=function(n){
+    if(lock)return;
+    idx=Math.max(0,Math.min(total-1,n));
+    window.__currentSlideIndex=idx;
+    deck.style.transform='translateX('+(-idx*100)+'vw)';
+    // 更新导航点 (如果存在)
+    const nav=document.getElementById('nav');
+    if(nav)nav.querySelectorAll('.dot').forEach((d,i)=>d.classList.toggle('active',i===idx));
+    lock=true;setTimeout(()=>lock=false,700);
+  };
+  go.__pptBuiltin=true;
+  window.go=go;
+
+  // 键盘导航 (仅非编辑输入时)
+  document.addEventListener('keydown',e=>{
+    if(e.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
+    if(e.metaKey||e.ctrlKey||e.altKey)return;
+    if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' '||e.key==='PageDown'){
+      e.preventDefault();go(idx+1);
+    }else if(e.key==='ArrowLeft'||e.key==='ArrowUp'||e.key==='PageUp'){
+      e.preventDefault();go(idx-1);
+    }else if(e.key==='Home'){e.preventDefault();go(0);}
+    else if(e.key==='End'){e.preventDefault();go(total-1);}
+  });
+
+  // 构建/刷新导航点 (如果 #nav 存在但为空)
+  const nav=document.getElementById('nav');
+  if(nav&&!nav.children.length){
+    slides.forEach((s,i)=>{
+      const b=document.createElement('button');b.className='dot';b.dataset.i=i;
+      b.setAttribute('aria-label','Page '+(i+1));
+      b.onclick=()=>go(i);nav.appendChild(b);
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 3. PPTEditor 主类
 // ═══════════════════════════════════════════════════════════════
 class PPTEditor{
@@ -272,7 +328,7 @@ class PPTEditor{
     this.transition='fade'; // 默认切换效果
   }
 
-  start(){this._ui();this._bind();this._fn();this._injectTransitions();return this;}
+  start(){setupBuiltinNav();this._ui();this._bind();this._fn();this._injectTransitions();return this;}
   stop(){
     this._toggle(0);
     document.querySelectorAll('.pc,.dh').forEach(c=>c.remove());
