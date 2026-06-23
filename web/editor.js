@@ -355,6 +355,7 @@ class PPTEditor{
       '<span class="sp"></span>'+
       '<button id="eb-pdf" class="icon" title="导出 PDF">📄</button>'+
       '<button id="eb-s" class="pri">💾 保存</button>'+
+      '<button id="eb-present" class="pri" title="演示模式 (新标签页全屏播放)">▶ 演示</button>'+
       '<span class="st" id="eb-st">已加载</span>'+
       '<span id="eb-fn" style="color:#888;font-size:11px;border-left:1px solid #333;padding-left:8px;margin-left:4px"></span>'+
       '<button id="eb-h">？</button>';
@@ -384,9 +385,10 @@ class PPTEditor{
     document.getElementById('eb-dup').onclick=()=>this._dup();
     document.getElementById('eb-del').onclick=()=>this._del(window.__currentSlideIndex||0);
     document.getElementById('eb-s').onclick=()=>this._save();
+    document.getElementById('eb-present').onclick=()=>this._present();
     document.getElementById('eb-notes').onclick=()=>this._toggleNotes();
     document.getElementById('eb-pdf').onclick=()=>this._exportPDF();
-    document.getElementById('eb-h').onclick=()=>toast('＋新增 ⧉复制 🗑删除 📝备注 📄PDF · 左栏拖拽排序 · Cmd+S保存 · Cmd+Z撤销',5000);
+    document.getElementById('eb-h').onclick=()=>toast('＋新增 ⧉复制 🗑删除 📝备注 ▶演示 📄PDF · 左栏拖拽排序 · Cmd+S保存 · Cmd+Z撤销',5000);
 
     const transSel=document.getElementById('eb-trans');
     if(transSel)transSel.onchange=()=>{this.transition=transSel.value;this._applyTransition();};
@@ -909,6 +911,18 @@ class PPTEditor{
     document.querySelectorAll('[data-anim]').forEach(e=>{e.style.opacity='1';e.style.transform='none';});
     toast('准备打印…请在弹窗选择「另存为 PDF」',3000);
     setTimeout(()=>window.print(),300);
+  }
+
+  // ── 进入演示模式 (新标签页) ──
+  async _present(){
+    // 有未保存修改时先保存, 确保演示看到最新内容
+    if(this.d){
+      toast('正在保存…',1500);
+      await this._save();
+    }
+    const url='/view?file='+encodeURIComponent(this.fn);
+    window.open(url,'_blank');
+    toast('已在新标签页打开演示 · N备注 · T计时 · P导出PDF',3000);
   }
 
   // ── 保存 ──
