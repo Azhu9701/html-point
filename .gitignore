@@ -1,6 +1,5 @@
-# 文稿数据
+# 用户文稿数据 (不跟踪)
 presentations/
-templates/
 
 # Python
 __pycache__/
