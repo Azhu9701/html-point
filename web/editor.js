@@ -79,7 +79,7 @@ body.pe #ppt-zm{display:flex}
 document.head.appendChild(Object.assign(document.createElement('style'),{textContent:CSS}));
 
 class PPTEditor{
-  constructor(){this.m='view';this.z=1;this.d=0;this.undo=new UndoManager();this.dispose=[];this.sel=null;this.fn=''}
+  constructor(){this.m='view';this.z=1;this.d=0;this.undo=new UndoManager();this.dispose=[];this.sel=null;this.fn='';this._goWrapped=0}
   start(){this._ui();this._bind();this._fn();return this}
   stop(){this._toggle(0);document.querySelectorAll('.pc,.dh').forEach(c=>c.remove());document.querySelectorAll('.ps,.pw').forEach(c=>c.classList.remove('ps','pw'));this.undo.clear();this.dispose.forEach(f=>f());this.dispose=[]}
   _ui(){
@@ -134,7 +134,7 @@ class PPTEditor{
   _del(i){const ss=document.querySelectorAll('#deck > section.slide');if(ss.length<=1)return;if(!confirm('删除?'))return;ss[i].remove();this._rn();this._sb();go(Math.max(0,i-1));this._md()}
   _rn(){const ss=document.querySelectorAll('#deck > section.slide');ss.forEach((s,i)=>{s.innerHTML=s.innerHTML.replace(/>\d{2} \/ \d{2}</,`>${String(i+1).padStart(2,'0')} / ${ss.length}<`)})}
   _zoom(v){this.z=Math.max(0.4,Math.min(2,v||this.z));document.querySelectorAll('#deck > section.slide').forEach(s=>s.style.zoom=this.z);const el=document.getElementById('zm-v');if(el)el.textContent=Math.round(this.z*100)+'%'}
-  _sb(){const sb=document.getElementById('ppt-sb');sb.innerHTML='';document.querySelectorAll('#deck > section.slide').forEach((s,i)=>{const t=document.createElement('div');t.className='sb-t';t.innerHTML=`<div style="position:absolute;top:3px;left:5px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px">${i+1}</div>`;t.onclick=()=>go(i);sb.appendChild(t)});this._sa();const o=window.go;if(o)window.go=n=>{o(n);this._sa()}}
+  _sb(){const sb=document.getElementById('ppt-sb');sb.innerHTML='';document.querySelectorAll('#deck > section.slide').forEach((s,i)=>{const t=document.createElement('div');t.className='sb-t';t.innerHTML=`<div style="position:absolute;top:3px;left:5px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px">${i+1}</div>`;t.onclick=()=>go(i);sb.appendChild(t)});this._sa();if(!this._goWrapped){const o=window.go;if(o){window.go=n=>{o(n);this._sa()};this._goWrapped=1}}}
   _sa(){const c=window.__currentSlideIndex||0;document.querySelectorAll('.sb-t').forEach((t,i)=>t.classList.toggle('on',i===c))}
 
   _drag(el){
