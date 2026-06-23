@@ -372,13 +372,23 @@ function bindKeys(){
     if(e.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
 
     // → / Space / PageDown: 优先 fragment, 否则翻页
-    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'||e.key==='ArrowDown'){
       if(state.fragEnabled&&advanceFragment()){e.preventDefault();return;}
+      e.preventDefault();
+      const cur=window.__currentSlideIndex||0;
+      if(typeof window.go==='function')window.go(cur+1);
     }
-    // ← / PageUp: 优先回退 fragment
-    if(e.key==='ArrowLeft'||e.key==='PageUp'){
+    // ← / PageUp: 优先回退 fragment, 否则翻页
+    if(e.key==='ArrowLeft'||e.key==='PageUp'||e.key==='ArrowUp'){
       if(retreatFragment()){e.preventDefault();return;}
+      e.preventDefault();
+      const cur=window.__currentSlideIndex||0;
+      if(typeof window.go==='function')window.go(cur-1);
     }
+    if(e.key==='Home'){e.preventDefault();if(typeof window.go==='function')window.go(0);}
+    if(e.key==='End'){e.preventDefault();
+      const slides=document.querySelectorAll('#deck > section.slide');
+      if(typeof window.go==='function')window.go(slides.length-1);}
     // 功能键
     if(e.key==='n'||e.key==='N'){e.preventDefault();toggleNotes();}
     if(e.key==='t'||e.key==='T'){e.preventDefault();toggleBigTimer();}
