@@ -89,3 +89,20 @@ class TestStorage:
             assert result["ok"] is True
             saved = (base / "clean.html").read_text()
             assert "alert(1)" not in saved
+
+    def test_save_strips_new_markers(self):
+        """新标记 ppt-editor / ppt-presenter 都应被正确清理"""
+        with tempfile.TemporaryDirectory() as d:
+            base = Path(d) / "presentations"
+            html = (
+                "<html><body>content"
+                "<!-- HTML Point ppt-editor -->\n<script>\neditorCode()\n</script>\n"
+                "<!-- HTML Point ppt-presenter -->\n<script>\npresenterCode()\n</script>\n"
+                "</body></html>"
+            )
+            result = save_file(base, "markers.html", html)
+            assert result["ok"] is True
+            saved = (base / "markers.html").read_text()
+            assert "editorCode" not in saved
+            assert "presenterCode" not in saved
+            assert "content" in saved

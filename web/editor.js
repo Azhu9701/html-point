@@ -243,6 +243,14 @@ body.pe #ppt-zm{display:flex}
 .slide.trans-in-fade{opacity:1}
 .slide.trans-in-slide{transform:translateX(0);opacity:1}
 .slide.trans-in-zoom{transform:scale(1);opacity:1}
+
+/* ── 演讲者备注编辑面板 ── */
+#ppt-notes-panel{position:fixed;left:var(--hp-sb);bottom:14px;z-index:9999;display:none;flex-direction:column;width:380px;max-width:calc(100vw - var(--hp-sb) - var(--hp-in) - 40px);background:#1c1c1e;border:1px solid #3a3a3c;border-radius:10px;padding:10px 14px;font-family:-apple-system,"PingFang SC",sans-serif;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+#ppt-notes-panel.on{display:flex}
+#ppt-notes-panel .nph{color:#ff6b35;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center}
+#ppt-notes-panel .nph span{color:#888;font-weight:400;text-transform:none;letter-spacing:0;font-size:11px}
+#ppt-notes-panel textarea{background:#0a0a0a;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;line-height:1.5;resize:vertical;min-height:80px;max-height:200px;width:100%}
+#ppt-notes-panel textarea:focus{outline:none;border-color:#ff6b35}
 `;
 
 // 注入 CSS
@@ -286,20 +294,31 @@ class PPTEditor{
       '<button id="eb-dup" class="icon" title="复制页">⧉</button>'+
       '<button id="eb-del" class="icon danger" title="删除页">🗑</button>'+
       '<span class="sp"></span>'+
+      '<button id="eb-notes" class="icon" title="演讲者备注">📝</button>'+
       '<select id="eb-trans" title="切换效果"><option value="fade">淡入</option><option value="slide">滑动</option><option value="zoom">缩放</option><option value="none">无</option></select>'+
       '<span class="sp"></span>'+
+      '<button id="eb-pdf" class="icon" title="导出 PDF">📄</button>'+
       '<button id="eb-s" class="pri">💾 保存</button>'+
       '<span class="st" id="eb-st">已加载</span>'+
       '<span id="eb-fn" style="color:#888;font-size:11px;border-left:1px solid #333;padding-left:8px;margin-left:4px"></span>'+
       '<button id="eb-h">？</button>';
     document.body.appendChild(bar);
 
-    // 侧栏、检查器、参考线、缩放条、Toast
+    // 侧栏、检查器、参考线、缩放条、备注面板、Toast
     [{id:'ppt-sb'},{id:'ppt-in',h:'<div class="ie">选中元素查看属性</div>'},{id:'ppt-gd'},
      {id:'ppt-zm',h:'<button id="zm-o">−</button><span class="zv" id="zm-v">100%</span><button id="zm-i">＋</button><button id="zm-f">⤢</button>'},
+     {id:'ppt-notes-panel',h:'<div class="nph">📝 演讲者备注 <span id="np-slide">第 1 页</span></div><textarea id="np-text" placeholder="输入本页的演讲备注…&#10;演示模式下按 N 键查看"></textarea>'},
      {id:'ppt-to'}].forEach(d=>{
       const e=document.createElement('div');e.id=d.id;if(d.h)e.innerHTML=d.h;document.body.appendChild(e);
     });
+    // 备注输入框联动
+    const npText=document.getElementById('np-text');
+    if(npText)npText.oninput=()=>{
+      const{el}=this._curSlide();if(!el)return;
+      const v=npText.value.trim();
+      if(v)el.setAttribute('data-notes',v);else el.removeAttribute('data-notes');
+      this._md();
+    };
   }
 
   // ── 事件绑定 ──
@@ -309,7 +328,9 @@ class PPTEditor{
     document.getElementById('eb-dup').onclick=()=>this._dup();
     document.getElementById('eb-del').onclick=()=>this._del(window.__currentSlideIndex||0);
     document.getElementById('eb-s').onclick=()=>this._save();
-    document.getElementById('eb-h').onclick=()=>toast('＋新增 ⧉复制 🗑删除 · 左栏拖拽排序 · Cmd+S保存 · Cmd+Z撤销 · Esc取消',5000);
+    document.getElementById('eb-notes').onclick=()=>this._toggleNotes();
+    document.getElementById('eb-pdf').onclick=()=>this._exportPDF();
+    document.getElementById('eb-h').onclick=()=>toast('＋新增 ⧉复制 🗑删除 📝备注 📄PDF · 左栏拖拽排序 · Cmd+S保存 · Cmd+Z撤销',5000);
 
     const transSel=document.getElementById('eb-trans');
     if(transSel)transSel.onchange=()=>{this.transition=transSel.value;this._applyTransition();};
@@ -588,6 +609,16 @@ class PPTEditor{
   _sa(){
     const c=window.__currentSlideIndex||0;
     document.querySelectorAll('.sb-t').forEach((t,i)=>t.classList.toggle('on',i===c));
+    // 同步备注面板 (如果打开)
+    const panel=document.getElementById('ppt-notes-panel');
+    if(panel&&panel.classList.contains('on')){
+      const slides=document.querySelectorAll('#deck > section.slide');
+      const el=slides[c];
+      const slideLbl=document.getElementById('np-slide');
+      if(slideLbl)slideLbl.textContent='第 '+(c+1)+' 页';
+      const ta=document.getElementById('np-text');
+      if(ta)ta.value=el?(el.getAttribute('data-notes')||''):'';
+    }
   }
 
   // ── 图片拖拽 + 缩放 ──
@@ -786,6 +817,42 @@ class PPTEditor{
     this.sel=null;
     document.querySelectorAll('.ps').forEach(e=>e.classList.remove('ps'));
     document.getElementById('ppt-in').innerHTML='<div class="ie">选中元素查看属性</div>';
+  }
+
+  // ── 当前 slide 辅助 ──
+  _curSlide(){
+    const idx=window.__currentSlideIndex||0;
+    const slides=document.querySelectorAll('#deck > section.slide');
+    return {idx,el:slides[idx],total:slides.length};
+  }
+
+  // ── 演讲者备注面板 ──
+  _toggleNotes(){
+    const panel=document.getElementById('ppt-notes-panel');
+    if(!panel)return;
+    const on=panel.classList.toggle('on');
+    if(on){
+      const{idx,el}=this._curSlide();
+      const slideLbl=document.getElementById('np-slide');
+      if(slideLbl)slideLbl.textContent='第 '+(idx+1)+' 页';
+      const ta=document.getElementById('np-text');
+      if(ta){ta.value=el?(el.getAttribute('data-notes')||''):'';ta.focus();}
+    }
+  }
+
+  // ── 导出 PDF ──
+  _exportPDF(){
+    // 注入打印样式
+    let ps=document.getElementById('ppt-print-css');
+    if(!ps){
+      ps=document.createElement('style');ps.id='ppt-print-css';
+      ps.textContent='@media print{@page{size:landscape;margin:0}html,body{overflow:visible!important;width:auto!important;height:auto!important}#deck{position:static!important;width:auto!important;height:auto!important;display:block!important;transform:none!important;transition:none!important}#deck>section.slide{width:100vw!important;height:100vh!important;page-break-after:always;break-after:page;page-break-inside:avoid;break-inside:avoid;transform:none!important;opacity:1!important;display:block!important}#deck>section.slide:last-child{page-break-after:auto}#ppt-bar,#ppt-sb,#ppt-in,#ppt-gd,#ppt-zm,#ppt-to,#ppt-notes-panel,.pc,.dh,#nav,#hint{display:none!important}[data-anim]{opacity:1!important;transform:none!important}canvas.bg{display:none!important}}';
+      document.head.appendChild(ps);
+    }
+    // 揭示所有动画元素
+    document.querySelectorAll('[data-anim]').forEach(e=>{e.style.opacity='1';e.style.transform='none';});
+    toast('准备打印…请在弹窗选择「另存为 PDF」',3000);
+    setTimeout(()=>window.print(),300);
   }
 
   // ── 保存 ──

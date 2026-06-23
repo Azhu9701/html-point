@@ -12,6 +12,7 @@ PRESENTATIONS = ROOT / "presentations"
 TEMPLATES_DIR = ROOT / "templates"
 WEB_DIR = ROOT / "web"
 EDITOR_JS = WEB_DIR / "editor.js"
+PRESENTER_JS = WEB_DIR / "presenter.js"
 INDEX_HTML = WEB_DIR / "index.html"
 DEMO_SRC = ROOT.parent / "2026机器人入职各行各业-演示.html"
 
@@ -104,8 +105,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
             # 安全: 剥离外部 script 标签
             html = security.strip_all_scripts(html)
             # 注入隐藏编辑器 UI 的样式
-            hide_css = "<style>#ppt-editor-bar,#ppt-sidebar,#ppt-inspector,#ppt-zoom-bar,#ppt-toast,.ppt-page-controls,.ppt-drag-handle{display:none!important} body.ppt-editing .slide{padding-left:5vw!important;padding-right:5vw!important} body.ppt-editing .canvas-card{margin-left:0!important;width:100vw!important}</style>"
+            hide_css = "<style>#ppt-editor-bar,#ppt-sidebar,#ppt-inspector,#ppt-zoom-bar,#ppt-toast,.ppt-page-controls,.ppt-drag-handle,#ppt-bar,#ppt-sb,#ppt-in,#ppt-gd,#ppt-zm,#ppt-to{display:none!important} body.ppt-editing .slide{padding-left:5vw!important;padding-right:5vw!important} body.ppt-editing .canvas-card{margin-left:0!important;width:100vw!important}</style>"
             html = html.replace("</head>", hide_css + "</head>", 1)
+            # 注入演示增强脚本 (备注/计时器/逐条/PDF)
+            if PRESENTER_JS.exists():
+                html = editor_injector.inject(html, str(PRESENTER_JS), marker="ppt-presenter")
             return self._send(200, html)
 
         # 静态文件 (安全: 只允许 WEB_DIR 内的 .css/.js 文件)

@@ -63,9 +63,10 @@ def validate_file_size(data: bytes) -> str | None:
 
 
 def strip_injected_scripts(html: str) -> str:
-    """去掉编辑器注入的 script 块, 保留原始内容"""
+    """去掉编辑器/演示器注入的 script 块, 保留原始内容"""
+    # 匹配新标记 (ppt-editor / ppt-presenter) 和旧标记 (编辑器)
     return re.sub(
-        r'<!-- HTML Point 编辑器.*?</script>\s*',
+        r'<!-- HTML Point (?:ppt-editor|ppt-presenter|编辑器).*?</script>\s*',
         '', html, flags=re.S
     )
 

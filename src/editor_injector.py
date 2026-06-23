@@ -3,18 +3,21 @@
 import re
 from pathlib import Path
 
-def inject(html: str, editor_js_path: str | Path) -> str:
-    """在 HTML 的 </body> 前注入编辑器 JS。已注入过则先清理旧版本。"""
+def inject(html: str, editor_js_path: str | Path, marker: str = "ppt-editor") -> str:
+    """在 HTML 的 </body> 前注入 JS。已注入过则先清理旧版本。
+
+    marker: 注释标记名，用于区分不同注入块 (ppt-editor / ppt-presenter)。
+    """
     js = Path(editor_js_path).read_text(encoding="utf-8")
 
-    # 清理旧注入
+    # 清理旧注入 (匹配指定 marker 的块)
     html = re.sub(
-        r'<!-- HTML Point 编辑器.*?</script>\s*',
+        rf'<!-- HTML Point {marker}.*?</script>\s*',
         '', html, flags=re.S
     )
 
     inject_block = (
-        "\n<!-- HTML Point 编辑器 -->\n"
+        f"\n<!-- HTML Point {marker} -->\n"
         "<script>\n" + js + "\n</script>\n"
     )
     return html.replace("</body>", inject_block + "</body>", 1)
