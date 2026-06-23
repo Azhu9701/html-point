@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HTML Point</title>
+<link rel="stylesheet" href="/web/app.css">
+</head>
+<body>
+<header>
+  <h1>◈ HTML Point</h1>
+  <p>开源 Keynote 替代 · 基于 HTML 的所见即所得演示工具</p>
+</header>
+<main>
+  <section>
+    <h2>📂 演示文稿 <span class="badge" id="file-count"></span></h2>
+    <ul class="list" id="file-list"><li class="empty-state">加载中…</li></ul>
+  </section>
+  <section>
+    <h2>🆕 从模板新建</h2>
+    <div class="tpl-grid" id="tpl-grid"></div>
+  </section>
+  <section>
+    <h2>📤 导入 HTML 文件</h2>
+    <div class="upload-area" onclick="document.getElementById('upload-file').click()">
+      拖拽或点击上传 .html 演示文件<br><small>支持本工具导出的文件</small>
+      <input type="file" id="upload-file" accept=".html" onchange="uploadFile(this)">
+    </div>
+  </section>
+</main>
+<footer>
+  HTML Point v2 · 本地运行 · <a href="#" onclick="alert('Ctrl+S 保存 · Ctrl+Z 撤销 · Esc 退出')">快捷键</a>
+</footer>
+
+<script>
+async function loadFiles(){
+  const res = await fetch('/api/list');
+  const data = await res.json();
+  document.getElementById('file-count').textContent = data.files.length + ' 个';
+  const ul = document.getElementById('file-list');
+  if(!data.files.length){
+    ul.innerHTML = '<li class="empty-state">还没有演示文稿，从下方模板新建一个吧</li>';
+    return;
+  }
+  ul.innerHTML = data.files.map(f => `<li>
+    <div><div class="file-name">${f.name}</div><div class="file-meta">${f.size} · ${f.modified}</div></div>
+    <div class="actions">
+      <a class="btn small primary" href="/edit?file=${encodeURIComponent(f.name)}">编辑</a>
+      <a class="btn small" href="/view?file=${encodeURIComponent(f.name)}" target="_blank">演示</a>
+      <button class="btn small danger" onclick="del('${f.name}')">删</button>
+    </div>
+  </li>`).join('');
+}
+
+async function del(name){
+  if(!confirm('删除 ' + name + '？')) return;
+  await fetch('/api/delete?file=' + encodeURIComponent(name), {method:'POST'});
+  loadFiles();
+}
+
+async function uploadFile(input){
+  const f = input.files[0];
+  if(!f) return;
+  const fd = new FormData();
+  fd.append('file', f);
+  await fetch('/api/upload', {method:'POST', body: fd});
+  input.value = '';
+  loadFiles();
+}
+
+// 模板列表
+const tpls = TEMPLATES_DATA__;
+document.getElementById('tpl-grid').innerHTML = tpls.map(t => `<div class="tpl-card" onclick="createNew('${t.key}')">
+  <div class="tpl-swatch">${t.colors.map(c => `<span style="background:${c}"></span>`).join('')}</div>
+  <div class="tpl-name">${t.name}</div><div class="tpl-desc">${t.desc}</div>
+</div>`).join('');
+
+function createNew(key){ location.href = '/edit?template=' + key; }
+
+loadFiles();
+</script>
+</body>
+</html>

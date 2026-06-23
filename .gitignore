@@ -1,0 +1,15 @@
+# 文稿数据
+presentations/
+templates/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
