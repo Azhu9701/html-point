@@ -408,7 +408,16 @@ class PPTEditor{
 
   // ── UI 构建 ──
   _ui(){
-    if(document.getElementById('ppt-bar'))return;
+    // 如果已有工具栏 (保存时残留的), 清除 display:none 复用之
+    const existing=document.getElementById('ppt-bar');
+    if(existing){
+      existing.style.display='';  // 清除残留的 display:none
+      // 同时清除其他残留编辑器 UI 的隐藏样式
+      ['ppt-sb','ppt-in','ppt-gd','ppt-zm','ppt-to','ppt-notes-panel'].forEach(id=>{
+        const e=document.getElementById(id);if(e)e.style.display='';
+      });
+      return;
+    }
     // 工具栏
     const bar=document.createElement('div');bar.id='ppt-bar';
     bar.innerHTML='<span style="color:#ff6b35;font-weight:700;font-size:11px">▶</span>'+
