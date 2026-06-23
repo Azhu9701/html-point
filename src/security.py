@@ -1,5 +1,4 @@
-"""安全校验模块: 路径安全 / 文件名净化 / 类型限制 / 大小限制"""
-
+from typing import Optional
 import os
 import re
 from pathlib import Path
@@ -55,7 +54,7 @@ def sanitize_filename(name: str) -> str:
     return name
 
 
-def validate_file_size(data: bytes) -> str | None:
+def validate_file_size(data: bytes) -> Optional[str]:
     """校验文件大小, 超标返回错误信息"""
     if len(data) > MAX_FILE_SIZE:
         return f"文件过大: {len(data) / 1024 / 1024:.1f} MB (最大 {MAX_FILE_SIZE / 1024 / 1024:.0f} MB)"

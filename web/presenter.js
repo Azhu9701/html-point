@@ -39,8 +39,54 @@ const CSS=`
 .ppt-frag.ppt-frag-left{transform:translateX(-20px)}
 .ppt-frag.ppt-frag-left.ppt-frag-on{transform:translateX(0)}
 
+
+/* 新增：激光笔 */
+#ppt-laser{position:fixed;width:20px;height:20px;background:#ff3b30;border-radius:50%;box-shadow:0 0 10px 4px rgba(255,59,48,.6);z-index:100000;pointer-events:none;display:none;transform:translate(-50%,-50%)}
+#ppt-laser.on{display:block}
+/* 新增：绘图模式 */
+#ppt-draw-canvas{position:fixed;inset:0;z-index:99997;pointer-events:none}
+#ppt-draw-canvas.on{pointer-events:auto}
+#ppt-draw-tools{position:fixed;right:16px;bottom:60px;z-index:99998;display:none;flex-direction:column;gap:4px;background:rgba(20,20,22,.9);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+#ppt-draw-tools.on{display:flex}
+#ppt-draw-tools button{background:rgba(44,44,46,.9);color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit}
+#ppt-draw-tools button:hover{background:#ff6b35;color:#0a0a0a}
+#ppt-draw-tools button.on{background:#ff6b35;color:#0a0a0a}
+#ppt-draw-tools .dc-row{display:flex;gap:4px;align-items:center}
+#ppt-draw-tools .dc-dot{width:16px;height:16px;border-radius:50%;border:2px solid transparent;cursor:pointer}
+#ppt-draw-tools .dc-dot.on{border-color:#fff}
+/* 新增：缩略图导航网格 */
+#ppt-thumb-grid{position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.85);backdrop-filter:blur(12px);display:none;flex-wrap:wrap;align-content:flex-start;justify-content:center;gap:12px;padding:40px;overflow-y:auto}
+#ppt-thumb-grid.on{display:flex}
+#ppt-thumb-grid .tg-item{width:240px;aspect-ratio:16/9;background:#1c1c1e;border:2px solid transparent;border-radius:8px;cursor:pointer;overflow:hidden;position:relative;transition:border-color .2s,transform .2s}
+#ppt-thumb-grid .tg-item:hover{border-color:#ff6b35;transform:scale(1.03)}
+#ppt-thumb-grid .tg-item.on{border-color:#ff6b35}
+#ppt-thumb-grid .tg-num{position:absolute;top:6px;left:8px;background:rgba(0,0,0,.7);color:#fff;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px}
+#ppt-thumb-grid .tg-clone{width:1600px;transform-origin:top left;position:absolute;top:0;left:0;pointer-events:none}
+#ppt-thumb-grid .tg-time{position:absolute;bottom:6px;right:8px;background:rgba(0,0,0,.7);color:#ff6b35;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px}
+/* 新增：跳转对话框 */
+#ppt-goto{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:100001;background:rgba(20,20,22,.95);border:1px solid rgba(255,255,255,.15);border-radius:12px;padding:20px;display:none;flex-direction:column;gap:10px;min-width:200px}
+#ppt-goto.on{display:flex}
+#ppt-goto input{background:#0a0a0a;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:8px 12px;font-size:16px;width:100%;font-family:inherit;text-align:center}
+#ppt-goto .gt-hint{color:#888;font-size:11px;text-align:center}
+/* 新增：排练计时器浮层 */
+#ppt-rehearse{position:fixed;right:16px;top:16px;z-index:99998;display:none;flex-direction:column;gap:6px;background:rgba(20,20,22,.9);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 14px;min-width:140px}
+#ppt-rehearse.on{display:flex}
+#ppt-rehearse .rh-ttl{color:#ff6b35;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+#ppt-rehearse .rh-time{color:#fff;font-size:24px;font-weight:300;font-variant-numeric:tabular-nums}
+#ppt-rehearse .rh-slide{color:#888;font-size:11px}
+/* 更多 fragment 动画类型 */
+.ppt-frag.ppt-frag-down{transform:translateY(-20px)}
+.ppt-frag.ppt-frag-down.ppt-frag-on{transform:translateY(0)}
+.ppt-frag.ppt-frag-right{transform:translateX(20px)}
+.ppt-frag.ppt-frag-right.ppt-frag-on{transform:translateX(0)}
+.ppt-frag.ppt-frag-zoom{transform:scale(.85)}
+.ppt-frag.ppt-frag-zoom.ppt-frag-on{transform:scale(1)}
+.ppt-frag.ppt-frag-rotate{transform:rotate(-10deg);opacity:.5}
+.ppt-frag.ppt-frag-rotate.ppt-frag-on{transform:rotate(0);opacity:1}
+
 /* ── PDF 打印样式 ── */
 @media print{
+  #ppt-laser,#ppt-draw-canvas,#ppt-draw-tools,#ppt-thumb-grid,#ppt-goto,#ppt-rehearse{display:none!important}
   @page{size:landscape;margin:0}
   html,body{overflow:visible!important;width:auto!important;height:auto!important;background:#fff!important}
   #deck{position:static!important;width:auto!important;height:auto!important;display:block!important;transform:none!important;transition:none!important}
@@ -67,6 +113,15 @@ const state={
   timerRunning:false,  // 计时是否运行中
   fragIndex:0,         // 当前 slide 的 fragment 揭示进度
   fragEnabled:false,   // 当前 slide 是否有 fragment
+  laserOn:false,       // 激光笔开关
+  drawOn:false,        // 绘图模式开关
+  drawColor:'#ff6b35', // 绘图颜色
+  drawLineWidth:3,     // 绘图线宽
+  drawHistory:[],      // 绘图历史
+  rehearseOn:false,    // 排练计时模式
+  slideTimes:[],      // 每页停留时间
+  slideStartTime:null,// 当前页进入时间
+  thumbGridOn:false,   // 缩略图导航
 };
 
 function toast(m,t=2000){
@@ -91,6 +146,9 @@ function buildUI(){
     '<button id="pt-notes" title="演讲者备注 (N)">📝 备注</button>'+
     '<button id="pt-frag" title="逐条展示模式 (F)">⚡ 逐条</button>'+
     '<span class="sp"></span>'+
+    '<button id="pt-draw" title="绘图模式 (D)">✎ 绘图</button>'+
+    '<button id="pt-rehearse" title="排练计时 (R)">⏱ 排练</button>'+
+    '<span class="sp"></span>'+
     '<button id="pt-pdf" title="导出 PDF (P)">📄 PDF</button>'+
     '<button id="pt-fs" title="全屏 (F11)">⛶ 全屏</button>';
   document.body.appendChild(bar);
@@ -103,6 +161,39 @@ function buildUI(){
   // 大字计时器
   const bt=document.createElement('div');bt.id='ppt-big-timer';bt.textContent='00:00';
   document.body.appendChild(bt);
+
+  // 激光笔光点
+  const laser=document.createElement('div');laser.id='ppt-laser';document.body.appendChild(laser);
+
+  // 绘图 Canvas
+  const drawCanvas=document.createElement('canvas');drawCanvas.id='ppt-draw-canvas';document.body.appendChild(drawCanvas);
+  // 绘图工具栏
+  const drawTools=document.createElement('div');drawTools.id='ppt-draw-tools';
+  drawTools.innerHTML='<div class="dc-row"><span style="color:#888;font-size:10px">颜色</span></div>'+
+    '<div class="dc-row">'+
+    '<div class="dc-dot on" style="background:#ff6b35" data-c="#ff6b35"></div>'+
+    '<div class="dc-dot" style="background:#ff3b30" data-c="#ff3b30"></div>'+
+    '<div class="dc-dot" style="background:#00d4ff" data-c="#00d4ff"></div>'+
+    '<div class="dc-dot" style="background:#52c41a" data-c="#52c41a"></div>'+
+    '<div class="dc-dot" style="background:#fff" data-c="#ffffff"></div>'+
+    '<div class="dc-dot" style="background:#000;border:1px solid #555" data-c="#000000"></div></div>'+
+    '<div class="dc-row" style="margin-top:6px"><span style="color:#888;font-size:10px">粗细</span></div>'+
+    '<div class="dc-row"><button data-lw="2">细</button><button data-lw="4" class="on">中</button><button data-lw="8">粗</button></div>'+
+    '<div class="dc-row" style="margin-top:6px"><button id="dt-clear">清除</button><button id="dt-close">关闭</button></div>';
+  document.body.appendChild(drawTools);
+
+  // 缩略图导航网格
+  const thumbGrid=document.createElement('div');thumbGrid.id='ppt-thumb-grid';document.body.appendChild(thumbGrid);
+
+  // 跳转对话框
+  const gotoDlg=document.createElement('div');gotoDlg.id='ppt-goto';
+  gotoDlg.innerHTML='<input type="number" id="gt-in" min="1" placeholder="页码" autofocus><div class="gt-hint">按 Enter 跳转，Esc 取消</div>';
+  document.body.appendChild(gotoDlg);
+
+  // 排练计时器
+  const rehearse=document.createElement('div');rehearse.id='ppt-rehearse';
+  rehearse.innerHTML='<div class="rh-ttl">排练计时</div><div class="rh-time" id="rh-time">00:00</div><div class="rh-slide" id="rh-slide">第 1 页</div>';
+  document.body.appendChild(rehearse);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -190,7 +281,11 @@ function scanFragments(){
     f.classList.add('ppt-frag');
     const type=f.getAttribute('data-frag');
     if(type==='up')f.classList.add('ppt-frag-up');
+    else if(type==='down')f.classList.add('ppt-frag-down');
     else if(type==='left')f.classList.add('ppt-frag-left');
+    else if(type==='right')f.classList.add('ppt-frag-right');
+    else if(type==='zoom')f.classList.add('ppt-frag-zoom');
+    else if(type==='rotate')f.classList.add('ppt-frag-rotate');
     f.classList.remove('ppt-frag-on');
   });
 }
@@ -216,6 +311,160 @@ function retreatFragment(){
   state.fragIndex--;
   state.fragEnabled=true;
   return true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 新增：激光笔模式
+// ═══════════════════════════════════════════════════════════════
+function setupLaser(){
+  const laser=document.getElementById('ppt-laser');
+  document.addEventListener('keydown',e=>{
+    if(e.key==='l'||e.key==='L'){
+      if(e.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;
+      state.laserOn=true;laser.classList.add('on');
+    }
+  });
+  document.addEventListener('keyup',e=>{
+    if(e.key==='l'||e.key==='L'){state.laserOn=false;laser.classList.remove('on');}
+  });
+  document.addEventListener('mousemove',e=>{
+    if(state.laserOn){laser.style.left=e.clientX+'px';laser.style.top=e.clientY+'px';}
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 新增：绘图/批注模式
+// ═══════════════════════════════════════════════════════════════
+function setupDrawing(){
+  const canvas=document.getElementById('ppt-draw-canvas');
+  const ctx=canvas.getContext('2d');
+  let drawing=false,lastX=0,lastY=0;
+  function resizeCanvas(){
+    canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+    if(state.drawHistory.length){
+      state.drawHistory.forEach(stroke=>{
+        ctx.beginPath();ctx.strokeStyle=stroke.c;ctx.lineWidth=stroke.w;ctx.lineCap='round';
+        stroke.p.forEach((p,i)=>{if(i===0)ctx.moveTo(p.x,p.y);else ctx.lineTo(p.x,p.y);});
+        ctx.stroke();
+      });
+    }
+  }
+  resizeCanvas();window.addEventListener('resize',resizeCanvas);
+  canvas.addEventListener('mousedown',e=>{
+    if(!state.drawOn)return;
+    drawing=true;lastX=e.clientX;lastY=e.clientY;
+    state.drawHistory.push({c:state.drawColor,w:state.drawLineWidth,p:[{x:lastX,y:lastY}]});
+  });
+  canvas.addEventListener('mousemove',e=>{
+    if(!drawing||!state.drawOn)return;
+    ctx.beginPath();ctx.strokeStyle=state.drawColor;ctx.lineWidth=state.drawLineWidth;ctx.lineCap='round';
+    ctx.moveTo(lastX,lastY);ctx.lineTo(e.clientX,e.clientY);ctx.stroke();
+    lastX=e.clientX;lastY=e.clientY;
+    const stroke=state.drawHistory[state.drawHistory.length-1];
+    stroke.p.push({x:lastX,y:lastY});
+  });
+  canvas.addEventListener('mouseup',()=>drawing=false);
+  canvas.addEventListener('mouseout',()=>drawing=false);
+  document.querySelectorAll('#ppt-draw-tools .dc-dot').forEach(d=>{
+    d.onclick=()=>{document.querySelectorAll('#ppt-draw-tools .dc-dot').forEach(x=>x.classList.remove('on'));d.classList.add('on');state.drawColor=d.dataset.c;};
+  });
+  document.querySelectorAll('#ppt-draw-tools [data-lw]').forEach(b=>{
+    b.onclick=()=>{document.querySelectorAll('#ppt-draw-tools [data-lw]').forEach(x=>x.classList.remove('on'));b.classList.add('on');state.drawLineWidth=+b.dataset.lw;};
+  });
+  document.getElementById('dt-clear').onclick=()=>{ctx.clearRect(0,0,canvas.width,canvas.height);state.drawHistory=[];};
+  document.getElementById('dt-close').onclick=()=>toggleDrawing();
+}
+function toggleDrawing(){
+  state.drawOn=!state.drawOn;
+  document.getElementById('ppt-draw-canvas').classList.toggle('on',state.drawOn);
+  document.getElementById('ppt-draw-tools').classList.toggle('on',state.drawOn);
+  const btn=document.getElementById('pt-draw');
+  if(btn)btn.classList.toggle('on',state.drawOn);
+  if(state.drawOn)toast('绘图模式: 按住鼠标涂鸦，按 D 或关闭按钮退出',2500);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 新增：缩略图导航 (G 键)
+// ═══════════════════════════════════════════════════════════════
+function toggleThumbGrid(){
+  const grid=document.getElementById('ppt-thumb-grid');
+  state.thumbGridOn=!state.thumbGridOn;
+  grid.classList.toggle('on',state.thumbGridOn);
+  if(!state.thumbGridOn)return;
+  grid.innerHTML='';
+  const slides=document.querySelectorAll('#deck > section.slide');
+  const cur=window.__currentSlideIndex||0;
+  slides.forEach((s,i)=>{
+    const item=document.createElement('div');item.className='tg-item'+(i===cur?' on':'');
+    const clone=s.cloneNode(true);
+    clone.className='tg-clone';
+    clone.style.cssText='width:1600px;height:900px;transform-origin:top left;position:absolute;top:0;left:0;pointer-events:none';
+    clone.querySelectorAll('.ppt-frag').forEach(f=>f.classList.add('ppt-frag-on'));
+    item.appendChild(clone);
+    const num=document.createElement('div');num.className='tg-num';num.textContent=i+1;item.appendChild(num);
+    const time=document.createElement('div');time.className='tg-time';
+    time.textContent=state.slideTimes[i]?fmtTime(state.slideTimes[i]*1000):'--:--';
+    item.appendChild(time);
+    item.onclick=()=>{if(typeof window.go==='function')window.go(i);toggleThumbGrid();};
+    grid.appendChild(item);
+  });
+  requestAnimationFrame(()=>{
+    grid.querySelectorAll('.tg-item').forEach(it=>{
+      const clone=it.querySelector('.tg-clone');
+      if(clone){const w=it.clientWidth;clone.style.transform='scale('+(w/1600)+')';}
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 新增：跳转 (Ctrl+G / J)
+// ═══════════════════════════════════════════════════════════════
+function showGoto(){
+  const g=document.getElementById('ppt-goto');
+  g.classList.add('on');
+  const inp=document.getElementById('gt-in');inp.value='';inp.focus();
+  const onKey=e=>{
+    if(e.key==='Enter'){
+      const n=+inp.value;if(n>=1){const slides=document.querySelectorAll('#deck > section.slide');if(n<=slides.length&&typeof window.go==='function')window.go(n-1);}
+      g.classList.remove('on');document.removeEventListener('keydown',onKey);
+    }else if(e.key==='Escape'){g.classList.remove('on');document.removeEventListener('keydown',onKey);}
+  };
+  setTimeout(()=>document.addEventListener('keydown',onKey),0);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 新增：排练计时
+// ═══════════════════════════════════════════════════════════════
+function toggleRehearse(){
+  state.rehearseOn=!state.rehearseOn;
+  document.getElementById('ppt-rehearse').classList.toggle('on',state.rehearseOn);
+  const btn=document.getElementById('pt-rehearse');
+  if(btn)btn.textContent=state.rehearseOn?'⏹ 结束':'⏱ 排练';
+  if(state.rehearseOn){
+    state.slideTimes=[];state.slideStartTime=Date.now();toast('排练计时开始',2000);
+  }else{
+    const{idx}=getCurrentSlide();
+    if(state.slideStartTime!=null){state.slideTimes[idx]=(state.slideTimes[idx]||0)+(Date.now()-state.slideStartTime)/1000;}
+    const total=state.slideTimes.reduce((a,b)=>a+b,0);
+    toast('排练结束 · 总用时 '+fmtTime(total*1000)+' · 按 G 查看详情',4000);
+  }
+}
+function updateRehearse(){
+  if(!state.rehearseOn)return;
+  const now=Date.now();
+  const{idx}=getCurrentSlide();
+  const cur=state.slideTimes[idx]||0;
+  const elapsed=(now-(state.slideStartTime||now))/1000;
+  const total=cur+elapsed;
+  document.getElementById('rh-time').textContent=fmtTime(total*1000);
+  document.getElementById('rh-slide').textContent='第 '+(idx+1)+' 页';
+}
+function onSlideChangeRehearse(){
+  if(!state.rehearseOn)return;
+  const now=Date.now();
+  const prev=window.__prevSlideIndex||0;
+  if(state.slideStartTime!=null){state.slideTimes[prev]=(state.slideTimes[prev]||0)+(now-state.slideStartTime)/1000;}
+  state.slideStartTime=now;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -264,6 +513,8 @@ function hookNavigation(){
   const orig=window.go;
   if(!orig||orig.__pptHooked)return;
   const wrapped=function(n){
+    window.__prevSlideIndex=window.__currentSlideIndex||0;
+    onSlideChangeRehearse();
     orig(n);
     updatePageCount();
     if(state.notesOn)updateNotes();
@@ -283,6 +534,7 @@ function bindKeys(){
 
     // → / Space / PageDown: 优先 fragment, 否则翻页
     if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'||e.key==='ArrowDown'){
+      if(state.thumbGridOn){e.preventDefault();return;}
       if(state.fragEnabled&&advanceFragment()){e.preventDefault();return;}
       e.preventDefault();
       const cur=window.__currentSlideIndex||0;
@@ -290,6 +542,7 @@ function bindKeys(){
     }
     // ← / PageUp: 优先回退 fragment, 否则翻页
     if(e.key==='ArrowLeft'||e.key==='PageUp'||e.key==='ArrowUp'){
+      if(state.thumbGridOn){e.preventDefault();return;}
       if(retreatFragment()){e.preventDefault();return;}
       e.preventDefault();
       const cur=window.__currentSlideIndex||0;
@@ -310,9 +563,15 @@ function bindKeys(){
       }
     }
     if(e.key==='p'||e.key==='P'){e.preventDefault();exportPDF();}
+    if(e.key==='d'||e.key==='D'){e.preventDefault();toggleDrawing();}
+    if(e.key==='g'||e.key==='G'){e.preventDefault();toggleThumbGrid();}
+    if(e.key==='j'||e.key==='J'){e.preventDefault();showGoto();}
+    if(e.key==='r'||e.key==='R'){e.preventDefault();toggleRehearse();}
     if(e.key==='Escape'){
+      if(state.thumbGridOn){toggleThumbGrid();return;}
       if(state.bigTimerOn){toggleBigTimer();return;}
       if(state.notesOn){toggleNotes();return;}
+      if(state.drawOn){toggleDrawing();return;}
     }
   });
 }
@@ -325,8 +584,11 @@ function init(){
   buildUI();
   hookNavigation();
   bindKeys();
+  setupLaser();
+  setupDrawing();
   updatePageCount();
   scanFragments();
+  setInterval(updateRehearse,500);
 
   // 绑定按钮
   document.getElementById('pt-timer').onclick=toggleTimer;
@@ -341,9 +603,11 @@ function init(){
   };
   document.getElementById('pt-pdf').onclick=exportPDF;
   document.getElementById('pt-fs').onclick=toggleFullscreen;
+  document.getElementById('pt-draw').onclick=toggleDrawing;
+  document.getElementById('pt-rehearse').onclick=toggleRehearse;
 
   // 欢迎提示
-  setTimeout(()=>toast('演示就绪 · N备注 · T计时 · →翻页/逐条 · P导出PDF',3500),800);
+  setTimeout(()=>toast('演示就绪 · N备注 · T计时 · D绘图 · G缩略图 · J跳转 · R排练 · →翻页/逐条 · P导出PDF',4500),800);
 }
 
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);

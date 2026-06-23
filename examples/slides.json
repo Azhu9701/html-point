@@ -1,0 +1,78 @@
+{
+  "title": "AI 与机器人行业展望",
+  "theme": "dark-tech",
+  "slides": [
+    {
+      "layout": "title",
+      "kicker": "2026 年度展望",
+      "title": "AI 与机器人<br>正在重塑世界",
+      "subtitle": "从技术趋势到商业落地的全景分析",
+      "meta": "HTML Point 演示"
+    },
+    {
+      "layout": "title-content",
+      "kicker": "市场概况",
+      "title": "行业正在爆发式增长",
+      "content": "全球 AI 市场规模预计将在 2026 年达到 1.2 万亿美元。机器人领域出货量同比增长 45%，其中人形机器人成为最热门的细分赛道。"
+    },
+    {
+      "layout": "kpi",
+      "kicker": "核心数据",
+      "title": "2026 关键指标",
+      "kpi1": "<div class='stat-label'>市场规模</div><div class='stat-nb'>$1.2<span class='stat-unit'>万亿</span></div>",
+      "kpi2": "<div class='stat-label'>增长率</div><div class='stat-nb'>45<span class='stat-unit'>%</span></div>",
+      "kpi3": "<div class='stat-label'>企业数量</div><div class='stat-nb'>8,400<span class='stat-unit'>家</span></div>",
+      "kpi4": "<div class='stat-label'>投融资</div><div class='stat-nb'>$320<span class='stat-unit'>亿</span></div>"
+    },
+    {
+      "layout": "chart",
+      "kicker": "市场分析",
+      "title": "各细分领域增长率",
+      "chart": {
+        "type": "chart",
+        "chart_type": "bar",
+        "data": [
+          {"label": "人形机器人", "value": 78},
+          {"label": "工业机器人", "value": 32},
+          {"label": "服务机器人", "value": 56},
+          {"label": "医疗机器人", "value": 45},
+          {"label": "农业机器人", "value": 28}
+        ]
+      }
+    },
+    {
+      "layout": "two-column",
+      "kicker": "技术对比",
+      "title": "传统 vs AI 驱动",
+      "subtitle": "范式转移正在进行",
+      "content": "<ul style='margin-left:1.5em;opacity:.8'><li>感知能力：从规则匹配到深度学习</li><li>决策能力：从预设程序到强化学习</li><li>交互能力：从按钮到自然语言</li><li>适应能力：从固定环境到动态场景</li></ul>"
+    },
+    {
+      "layout": "table",
+      "kicker": "竞争格局",
+      "title": "主要厂商对比",
+      "table": {
+        "type": "table",
+        "headers": ["公司", "产品", "估值", "优势"],
+        "rows": [
+          ["Tesla", "Optimus", "$800B", "制造+AI"],
+          ["Figure AI", "Figure 01", "$2.6B", "通用人形"],
+          ["Boston Dynamics", "Atlas", "Hyundai", "运动控制"],
+          ["Agility", "Digit", "$1.5B", "物流场景"]
+        ]
+      }
+    },
+    {
+      "layout": "quote",
+      "quote": "未来的机器人不是替代人类，而是放大人类的能力。",
+      "author": "—— 某 AI 实验室创始人"
+    },
+    {
+      "layout": "title",
+      "kicker": "感谢聆听",
+      "title": "Questions?",
+      "subtitle": "让我们一起塑造未来",
+      "meta": ""
+    }
+  ]
+}

@@ -9,6 +9,7 @@
   <img src="https://img.shields.io/badge/Python-3.8+-blue.svg" alt="Python 3.8+">
   <img src="https://img.shields.io/badge/JavaScript-Vanilla-yellow.svg" alt="Vanilla JS">
   <img src="https://img.shields.io/badge/Dependencies-Zero-brightgreen.svg" alt="Zero Dependencies">
+  <img src="https://img.shields.io/badge/CLI-Available-blue.svg" alt="CLI Available">
 </p>
 
 ---
@@ -18,6 +19,15 @@
 **HTML Point** 是一个开源、零依赖、本地运行的演示文稿工具。它最大的特点是：**像 Keynote 一样所见即所得地编辑，但保存在一个普通的 HTML 文件中**——发给任何人，双击就能看，不需要安装任何软件。
 
 **HTML Point** is an open-source, zero-dependency, locally-run presentation tool. Its killer feature: **edit like Keynote with WYSIWYG, but save as a plain HTML file** — share it with anyone, they just double-click to view. No software installation needed.
+
+### v3 新增亮点
+- **CLI 工具**：通过命令行生成、转换、导出幻灯片，方便 Agent 自动化调用
+- **10 套主题**：科技、商务、学术、创意、极简、瑞士、自然、午夜、樱花、赛博
+- **16 种布局**：标题、内容、双栏、三栏、全图、对比、KPI、图表、表格、代码、引用、视频、时间线、空白
+- **Markdown / JSON / YAML 输入**：从纯文本直接生成精美幻灯片
+- **增强编辑器**：支持插入表格、代码块、形状、视频、引用；查找替换；幻灯片母版
+- **增强演示器**：激光笔、绘图批注、缩略图导航、排练计时、逐条展示
+- **导出引擎**：PDF、PNG、PPTX、HTML-ZIP
 
 ---
 
@@ -43,23 +53,51 @@
 - 点击文字直接修改（`contenteditable`）
 - 拖拽图片自由布局，四角手柄等比缩放
 - 属性检查器：字号、颜色、对齐、圆角、亮度、边框色
-- **UndoManager**：自研撤销栈，支持 `Ctrl+Z` 无限撤销
-- 辅助线吸附：拖拽时显示中线对齐参考线
+- **Command 模式撤销系统**：支持 `Ctrl+Z` 无限撤销，涵盖样式、位置、大小、文字、幻灯片操作
+- 辅助线吸附：拖拽时显示中线对齐参考线 + 8px 网格吸附
+- 查找替换：`Ctrl+F` 全局搜索替换
+- 幻灯片母版：一键设置全局字体、颜色、背景
 
-### 🎨 模板系统
-- **深色科技**（默认）— 深空黑底 + 橙色高亮，适合科技/产品/路演
-- **极简白** — 纯白底 + 蓝色点缀，适合学术/汇报
-- **渐变紫** — 深紫底 + 金色点缀，适合创意/品牌
+### 🧱 插入组件
+- 表格（对话框输入行列数）
+- 代码块（支持 JavaScript/Python/HTML/CSS/Rust/Bash）
+- 形状（矩形、圆形、箭头）
+- 视频 / iframe（支持 YouTube 自动转换）
+- 引用块（blockquote）
+- 文本框
+
+### 🎨 模板与主题
+- **10 套内置主题**：深色科技、极简白、渐变紫、瑞士 IKB、森林绿、暖陶土、午夜蓝、樱花粉、单色灰、霓虹赛博
+- **16 种布局模板**：标题、内容、双栏、三栏、全图、对比、KPI、图表、表格、代码、引用、视频、时间线、空白
 - 一键从模板新建，自动替换配色变量
+- 支持自定义 YAML 主题定义
 
 ### 📽️ 演示模式
 - 一键全屏播放，`Esc` 回到编辑
 - 左右方向键翻页
-- 演示视图自动隐藏编辑器 UI
+- 演讲者备注（`N` 键）
+- 逐条展示（`F` 键，支持 up/left/down/right/zoom/rotate 动画）
+- 计时器（`T` 键，大字计时器）
+- 激光笔（`L` 键按住）
+- 绘图批注（`D` 键，多色多粗细涂鸦）
+- 缩略图导航（`G` 键，网格缩略图点击跳转）
+- 页码跳转（`J` 键）
+- 排练计时（`R` 键，记录每页停留时间）
+- PDF 导出（`P` 键）
+
+### 🔧 CLI 工具
+- `html-point init` — 初始化新演示稿
+- `html-point build` — 从 JSON / YAML / Markdown 构建 HTML
+- `html-point serve` — 启动编辑服务器
+- `html-point convert` — 转换 PPTX / Markdown 为 HTML
+- `html-point export` — 导出 PDF / PNG / PPTX / HTML-ZIP
+- `html-point theme` — 主题管理（列出/应用）
+- `html-point template` — 布局模板管理（列出/查看详情）
+- `html-point validate` — 验证演示稿格式
 
 ### 🔒 安全
 - 路径穿越防护（`safe_join` 校验）
-- 外部 `script` 标签剥离（防 XSS）
+- 白名单脚本过滤（保留演示稿内部功能，删除外部风险脚本）
 - 文件类型白名单（仅 `.html`）
 - 上传大小限制（10MB）
 
@@ -67,13 +105,27 @@
 
 ## 📋 前置要求 / Prerequisites
 
-- **Python 3.8+**（无需 pip install 任何包——全部使用标准库）
+- **Python 3.8+**（无需 pip install 任何包即可运行基础功能——全部使用标准库）
 - 现代浏览器（Chrome / Firefox / Safari / Edge）
+
+### 可选依赖（用于导出和转换）
+```bash
+# PDF / PNG 导出
+pip install playwright
+playwright install chromium
+
+# PPTX 转换
+pip install python-pptx
+
+# YAML 解析
+pip install pyyaml
+```
 
 ---
 
 ## 🚀 快速开始 / Quick Start
 
+### 方式 1：Web 编辑器（GUI）
 ```bash
 # 克隆仓库
 git clone https://github.com/azhu97/html-point.git
@@ -81,12 +133,32 @@ cd html-point
 
 # 一键启动
 ./start.sh
-
 # 或者
 python3 server.py
+
+# 浏览器访问 http://localhost:3099
 ```
 
-浏览器访问：**http://localhost:3099**
+### 方式 2：CLI 生成（Agent 友好）
+```bash
+# 从 Markdown 生成幻灯片
+python3 cli.py build slides.md --out=presentation.html --theme=dark-tech
+
+# 从 JSON 生成幻灯片
+python3 cli.py build slides.json --out=presentation.html --theme=swiss-ikb
+
+# 初始化空白演示稿
+python3 cli.py init my-deck --theme=forest-green --slides=10
+
+# 导出 PDF
+python3 cli.py export presentation.html --format=pdf --out=output.pdf
+
+# 列出所有主题
+python3 cli.py theme list
+
+# 列出所有布局模板
+python3 cli.py template list
+```
 
 ### 三种打开方式
 
@@ -102,32 +174,51 @@ python3 server.py
 
 ```
 html-point/
-├── server.py                  # 入口：启动 HTTP 服务 (port 3099)
-├── start.sh                   # 一键启动脚本
-├── LICENSE                    # MIT 许可证
-├── README.md                  # 本文件
+├── cli.py                      # CLI 入口
+├── server.py                   # HTTP 服务入口
+├── start.sh                    # 一键启动脚本
+├── LICENSE
+├── README.md
 │
-├── src/                       # 后端 Python 模块
-│   ├── app.py                 # 路由分发 (GET/POST) & HTTP Handler
-│   ├── storage.py             # 文件 CRUD (列表/保存/删除/上传)
-│   ├── template.py            # 模板系统 (3 套内置模板)
-│   ├── security.py            # 安全校验 (路径/文件名/XSS/大小)
-│   └── editor_injector.py     # 编辑器 JS 注入到演示 HTML
+├── src/                        # 后端 Python 模块
+│   ├── app.py                  # 路由分发 & HTTP Handler
+│   ├── storage.py              # 文件 CRUD (列表/保存/删除/上传)
+│   ├── template.py             # 模板系统 (3 套内置模板)
+│   ├── security.py             # 安全校验 (白名单脚本过滤/路径安全)
+│   ├── editor_injector.py      # JS 注入到演示 HTML
+│   ├── cli/                    # CLI 模块
+│   │   ├── commands.py         # 子命令实现
+│   │   └── utils.py            # CLI 工具函数
+│   └── engine/                 # 幻灯片引擎
+│       ├── builder.py          # 从数据构建 HTML
+│       ├── parser.py           # 解析 JSON/YAML/Markdown
+│       ├── layout.py           # 16 种布局系统
+│       ├── component.py        # 组件注册表
+│       ├── theme.py            # 10 套主题引擎
+│       └── export.py           # 导出引擎 (PDF/PNG/PPTX)
 │
-├── web/                       # 前端 (零框架)
-│   ├── index.html             # 首页：文件管理 + 模板选择
-│   ├── app.css                # 首页样式
-│   └── editor.js              # Keynote 风格编辑器 (~200 行 Class 化)
+├── web/                        # 前端 (零框架)
+│   ├── index.html              # 首页：文件管理 + 模板选择
+│   ├── app.css                 # 首页样式
+│   ├── core.js                 # 公共引擎 (导航+动画 fallback)
+│   ├── editor.js               # Keynote 风格编辑器 (~1300 行)
+│   └── presenter.js            # 演示模式增强 (~600 行)
 │
-├── templates/                 # 内置模板 HTML
-│   ├── dark-tech.html         # 深色科技
-│   ├── light-minimal.html     # 极简白
-│   └── gradient-purple.html   # 渐变紫
+├── templates/                  # 内置模板 HTML
+│   ├── dark-tech.html
+│   ├── light-minimal.html
+│   └── gradient-purple.html
 │
-├── presentations/             # 你的文稿 (.html 文件)
+├── layouts/                    # 自定义布局片段
+├── components/                 # 自定义组件片段
+├── themes/                     # 自定义主题 YAML
+├── examples/                   # 示例文件
+│   ├── slides.json
+│   └── slides.md
+├── presentations/              # 你的文稿 (.html 文件)
 │
 └── tests/
-    └── test_storage.py        # 单元测试 (8 个用例)
+    └── test_storage.py         # 单元测试
 ```
 
 ### 数据流 / Data Flow
@@ -137,30 +228,65 @@ html-point/
 ──────────                       ──────────
 GET  /                    ──→   index.html (首页)
 GET  /api/list            ──→   JSON 文件列表
-GET  /edit?file=xxx.html  ──→   原始 HTML → 净化 → 注入 editor.js
+GET  /edit?file=xxx.html  ──→   原始 HTML → 白名单净化 → 注入 core.js + editor.js
 POST /api/save             ──→   接收 HTML → 剥离编辑器 → 写入 presentations/
-GET  /view?file=xxx.html   ──→   原始 HTML → 净化 → 隐藏编辑器 UI → 返回
+GET  /view?file=xxx.html   ──→   原始 HTML → 白名单净化 → 注入 core.js + presenter.js
 ```
 
 ---
 
 ## ⌨️ 快捷键 / Shortcuts
 
+### 编辑器模式
 | 键 | 功能 |
 |---|------|
 | **← →** | 前后翻页 |
 | **Cmd/Ctrl + S** | 保存到文件 |
-| **Cmd/Ctrl + Z** | 撤销文字编辑 |
+| **Cmd/Ctrl + Z** | 撤销 |
 | **Cmd/Ctrl + Shift + Z** | 重做 |
+| **Cmd/Ctrl + F** | 查找替换 |
 | **Esc** | 退出编辑 / 退出全屏演示 |
+
+### 演示模式
+| 键 | 功能 |
+|---|------|
+| **← → / Space** | 前后翻页 |
+| **N** | 演讲者备注 |
+| **T** | 计时器 / 大字计时器 |
+| **F** | 逐条展示 |
+| **L (按住)** | 激光笔 |
+| **D** | 绘图批注模式 |
+| **G** | 缩略图导航网格 |
+| **J** | 跳转页码 |
+| **R** | 排练计时 |
+| **P** | 导出 PDF |
+| **Home / End** | 跳转到首/尾页 |
+| **Esc** | 退出备注 / 计时器 / 绘图 |
 
 ---
 
 ## 📤 导出分享 / Export & Share
 
+### 在编辑器中保存
 在编辑模式下点击 **💾 保存**（或 `Cmd+S`），文稿保存到 `presentations/` 目录。
 
-把这个 `.html` 文件发给别人，**双击即可观看**——不需要安装任何软件，不需要启动服务器。
+### CLI 导出
+```bash
+# 导出 PDF（需要 Playwright）
+python3 cli.py export presentation.html --format=pdf --out=output.pdf
+
+# 导出 PNG（所有页面）
+python3 cli.py export presentation.html --format=png --out=slides/ --all-pages
+
+# 导出 PPTX（需要 python-pptx）
+python3 cli.py export presentation.html --format=pptx --out=output.pptx
+
+# 打包为独立 HTML ZIP
+python3 cli.py export presentation.html --format=html-zip --out=package.zip
+```
+
+### 直接分享 HTML
+把 `.html` 文件发给别人，**双击即可观看**——不需要安装任何软件，不需要启动服务器。
 
 > 💡 **演示稿完全独立运行**：所有 CSS 内联在 `<style>` 中，所有内容内嵌在 HTML 里，不依赖外部资源（Google Fonts 除外，模板中使用了字体 CDN）。
 
@@ -191,6 +317,7 @@ python3 -m pytest tests/ -v
 - ✅ 文件名净化：去路径成分、自动补 `.html`
 - ✅ 文件大小校验（上限 10MB）
 - ✅ 存储 CRUD：保存/列表/删除/上传
+- ✅ 白名单脚本过滤：保留内部功能，删除外部风险
 - ✅ 编辑器脚本剥离（保存时清理注入）
 
 ---

@@ -3,7 +3,10 @@
 import re
 from pathlib import Path
 
-def inject(html: str, editor_js_path: str | Path, marker: str = "ppt-editor") -> str:
+from typing import Optional, Union
+
+
+def inject(html: str, editor_js_path: Union[str, Path], marker: str = "ppt-editor") -> str:
     """在 HTML 的 </body> 前注入 JS。已注入过则先清理旧版本。
 
     marker: 注释标记名，用于区分不同注入块 (ppt-editor / ppt-presenter)。

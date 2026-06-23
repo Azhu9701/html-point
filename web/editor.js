@@ -34,6 +34,49 @@ class CommandManager {
   clear(){this._stack=[];this._idx=-1;}
 }
 
+
+class SlideAddCommand {
+  constructor(slideHTML, slideIndex, deck) { this.html = slideHTML; this.idx = slideIndex; this.deck = deck; this.el = null; }
+  execute() {
+    const t = document.createElement('div'); t.innerHTML = this.html; this.el = t.firstElementChild;
+    const ss = this.deck.querySelectorAll(':scope > section.slide');
+    if (this.idx >= ss.length) this.deck.appendChild(this.el); else this.deck.insertBefore(this.el, ss[this.idx]);
+  }
+  undo() { if (this.el) this.el.remove(); }
+}
+class ElementAddCommand {
+  constructor(el, container) { this.el = el; this.container = container; this.done = false; }
+  execute() { this.container.appendChild(this.el); this.done = true; }
+  undo() { if (this.done) this.el.remove(); }
+}
+class ElementRemoveCommand {
+  constructor(el) { this.el = el; this.parent = el.parentElement; this.next = el.nextElementSibling; }
+  execute() { this.el.remove(); }
+  undo() { if (this.next) this.parent.insertBefore(this.el, this.next); else this.parent.appendChild(this.el); }
+}
+class SlideStyleCommand {
+  constructor(el, prop, oldVal, newVal) { this.el = el; this.prop = prop; this.oldVal = oldVal; this.newVal = newVal; }
+  execute() { this.el.style[this.prop] = this.newVal; }
+  undo() { this.el.style[this.prop] = this.oldVal; }
+}
+class SlideAttrCommand {
+  constructor(el, attr, oldVal, newVal) { this.el = el; this.attr = attr; this.oldVal = oldVal; this.newVal = newVal; }
+  execute() { if (this.newVal == null) this.el.removeAttribute(this.attr); else this.el.setAttribute(this.attr, this.newVal); }
+  undo() { if (this.oldVal == null) this.el.removeAttribute(this.attr); else this.el.setAttribute(this.attr, this.oldVal); }
+}
+class SlideOrderCommand {
+  constructor(deck, fromIdx, toIdx) { this.deck = deck; this.from = fromIdx; this.to = toIdx; }
+  execute() {
+    const ss = [...this.deck.querySelectorAll(':scope > section.slide')];
+    if (this.to < this.from) this.deck.insertBefore(ss[this.from], ss[this.to]);
+    else this.deck.insertBefore(ss[this.from], ss[this.to + 1]);
+  }
+  undo() {
+    const ss = [...this.deck.querySelectorAll(':scope > section.slide')];
+    if (this.from < this.to) this.deck.insertBefore(ss[this.to], ss[this.from]);
+    else this.deck.insertBefore(ss[this.to], ss[this.from + 1]);
+  }
+}
 // 具体命令类
 class StyleCommand {
   constructor(el,prop,oldVal,newVal){this.el=el;this.prop=prop;this.oldVal=oldVal;this.newVal=newVal;}
@@ -251,6 +294,62 @@ body.pe #ppt-zm{display:flex}
 #ppt-notes-panel .nph span{color:#888;font-weight:400;text-transform:none;letter-spacing:0;font-size:11px}
 #ppt-notes-panel textarea{background:#0a0a0a;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:8px 10px;font-size:13px;font-family:inherit;line-height:1.5;resize:vertical;min-height:80px;max-height:200px;width:100%}
 #ppt-notes-panel textarea:focus{outline:none;border-color:#ff6b35}
+/* 新增：插入菜单 */
+#ppt-insert-menu{position:absolute;top:44px;left:50%;transform:translateX(-50%);z-index:10000;background:#1c1c1e;border:1px solid #3a3a3c;border-radius:10px;padding:8px 0;display:none;flex-direction:column;min-width:180px;box-shadow:0 12px 40px rgba(0,0,0,.5)}
+#ppt-insert-menu.on{display:flex}
+#ppt-insert-menu button{background:transparent;color:#fff;border:none;border-radius:0;padding:8px 16px;font-size:12px;cursor:pointer;text-align:left;font-family:inherit;white-space:nowrap}
+#ppt-insert-menu button:hover{background:#ff6b35;color:#0a0a0a}
+#ppt-insert-menu .sep{height:1px;background:#3a3a3c;margin:4px 0}
+/* 新增：对话框 */
+#ppt-dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10001;background:#1c1c1e;border:1px solid #3a3a3c;border-radius:12px;padding:20px;min-width:320px;max-width:90vw;max-height:90vh;overflow-y:auto;display:none;box-shadow:0 16px 48px rgba(0,0,0,.6);font-family:-apple-system,"PingFang SC",sans-serif}
+#ppt-dialog.on{display:block}
+#ppt-dialog h3{margin:0 0 12px 0;color:#ff6b35;font-size:14px;font-weight:700}
+#ppt-dialog label{display:block;color:#bbb;font-size:12px;margin:10px 0 4px}
+#ppt-dialog input,#ppt-dialog select,#ppt-dialog textarea{background:#0a0a0a;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:6px 8px;font-size:12px;width:100%;font-family:inherit;box-sizing:border-box}
+#ppt-dialog textarea{resize:vertical;min-height:80px}
+#ppt-dialog .dia-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+#ppt-dialog .dia-btns button{background:#2c2c2e;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;font-family:inherit}
+#ppt-dialog .dia-btns button.pri{background:#ff6b35;color:#0a0a0a;border-color:#ff6b35;font-weight:600}
+#ppt-dialog .dia-btns button:hover{filter:brightness(1.2)}
+#ppt-dialog-overlay{position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.5);display:none}
+#ppt-dialog-overlay.on{display:block}
+/* 新增：查找替换 */
+#ppt-find{position:fixed;left:50%;top:60px;transform:translateX(-50%);z-index:10002;background:#1c1c1e;border:1px solid #3a3a3c;border-radius:10px;padding:12px 16px;display:none;gap:8px;align-items:center;font-family:-apple-system,"PingFang SC",sans-serif;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+#ppt-find.on{display:flex}
+#ppt-find input{background:#0a0a0a;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:6px 8px;font-size:12px;width:160px;font-family:inherit}
+#ppt-find button{background:#2c2c2e;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer;font-family:inherit}
+#ppt-find button:hover{background:#ff6b35;color:#0a0a0a}
+#ppt-find .fr-stat{color:#888;font-size:11px;white-space:nowrap}
+/* 新增：全局字体面板 */
+#ppt-font-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10001;background:#1c1c1e;border:1px solid #3a3a3c;border-radius:12px;padding:20px;width:360px;display:none;box-shadow:0 16px 48px rgba(0,0,0,.6);font-family:-apple-system,"PingFang SC",sans-serif}
+#ppt-font-panel.on{display:block}
+#ppt-font-panel h3{margin:0 0 12px 0;color:#ff6b35;font-size:14px;font-weight:700}
+#ppt-font-panel label{display:block;color:#bbb;font-size:12px;margin:8px 0 3px}
+#ppt-font-panel select,#ppt-font-panel input[type=number]{background:#0a0a0a;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:6px 8px;font-size:12px;width:100%;font-family:inherit;box-sizing:border-box}
+#ppt-font-panel .fp-row{display:flex;gap:8px;align-items:center;margin-top:12px}
+#ppt-font-panel .fp-row button{flex:1;background:#2c2c2e;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+#ppt-font-panel .fp-row button.pri{background:#ff6b35;color:#0a0a0a;border-color:#ff6b35;font-weight:600}
+#ppt-font-panel .fp-row button:hover{filter:brightness(1.2)}
+/* 新增：形状、代码块、表格、引用等基础样式 */
+.ppt-table{width:100%;border-collapse:collapse;font-size:14px}
+.ppt-table th,.ppt-table td{border:1px solid #3a3a3c;padding:8px 12px;text-align:left}
+.ppt-table th{background:#2c2c2e;color:#ff6b35;font-weight:600}
+.ppt-table td{background:#1c1c1e;color:#fff}
+.ppt-code-block{background:#0a0a0a;border:1px solid #3a3a3c;border-radius:8px;padding:16px;font-family:monospace;font-size:13px;line-height:1.5;color:#e0e0e0;overflow-x:auto;white-space:pre}
+.ppt-blockquote{border-left:4px solid #ff6b35;padding:8px 16px;margin:8px 0;background:#1c1c1e;color:#ccc;font-style:italic;border-radius:0 6px 6px 0}
+.ppt-shape-rect{background:#ff6b35;border-radius:4px}
+.ppt-shape-circle{background:#ff6b35;border-radius:50%}
+.ppt-shape-arrow{position:relative;width:0;height:0;border-style:solid}
+/* 新增：幻灯片母版面板 */
+#ppt-master-panel{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:10001;background:#1c1c1e;border:1px solid #3a3a3c;border-radius:12px;padding:20px;width:400px;max-height:80vh;overflow-y:auto;display:none;box-shadow:0 16px 48px rgba(0,0,0,.6);font-family:-apple-system,"PingFang SC",sans-serif}
+#ppt-master-panel.on{display:block}
+#ppt-master-panel h3{margin:0 0 12px 0;color:#ff6b35;font-size:14px;font-weight:700}
+#ppt-master-panel label{display:block;color:#bbb;font-size:12px;margin:8px 0 3px}
+#ppt-master-panel input,#ppt-master-panel select{background:#0a0a0a;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:6px 8px;font-size:12px;width:100%;font-family:inherit;box-sizing:border-box}
+#ppt-master-panel .mp-row{display:flex;gap:8px;align-items:center;margin-top:12px}
+#ppt-master-panel .mp-row button{flex:1;background:#2c2c2e;color:#fff;border:1px solid #3a3a3c;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:inherit}
+#ppt-master-panel .mp-row button.pri{background:#ff6b35;color:#0a0a0a;border-color:#ff6b35;font-weight:600}
+#ppt-master-panel .mp-row button:hover{filter:brightness(1.2)}
 `;
 
 // 注入 CSS
@@ -292,6 +391,9 @@ class PPTEditor{
     this.fn='';
     this._goWrapped=0;
     this.transition='fade'; // 默认切换效果
+    this._findIdx=-1;
+    this._findEls=[];
+    this._master={fontFamily:'',fontSize:'',color:'',bgColor:'',lineHeight:''};
   }
 
   start(){if(window.__pptCore)window.__pptCore.setup();setupEditorNav();this._ui();this._bind();this._fn();this._injectTransitions();return this;}
@@ -316,6 +418,10 @@ class PPTEditor{
       '<button id="eb-dup" class="icon" title="复制页">⧉</button>'+
       '<button id="eb-del" class="icon danger" title="删除页">🗑</button>'+
       '<span class="sp"></span>'+
+      '<button id="eb-ins" title="插入 ▼">插入</button>'+
+      '<button id="eb-font" title="全局字体">🅰 字体</button>'+
+      '<button id="eb-master" title="幻灯片母版">⚙ 母版</button>'+
+      '<span class="sp"></span>'+
       '<button id="eb-notes" class="icon" title="演讲者备注">📝</button>'+
       '<select id="eb-trans" title="切换效果"><option value="fade">淡入</option><option value="slide">滑动</option><option value="zoom">缩放</option><option value="none">无</option></select>'+
       '<span class="sp"></span>'+
@@ -326,6 +432,56 @@ class PPTEditor{
       '<span id="eb-fn" style="color:#888;font-size:11px;border-left:1px solid #333;padding-left:8px;margin-left:4px"></span>'+
       '<button id="eb-h">？</button>';
     document.body.appendChild(bar);
+
+    // 插入菜单
+    const im=document.createElement('div');im.id='ppt-insert-menu';
+    im.innerHTML='<button data-ins="table">📊 表格</button>'+
+      '<button data-ins="code">💻 代码块</button>'+
+      '<button data-ins="shape">🔷 形状</button>'+
+      '<div class="sep"></div>'+
+      '<button data-ins="video">🎬 视频 / iframe</button>'+
+      '<button data-ins="quote">❝ 引用块</button>'+
+      '<div class="sep"></div>'+
+      '<button data-ins="image">🖼 图片</button>'+
+      '<button data-ins="text">📝 文本框</button>';
+    document.body.appendChild(im);
+
+    // 查找替换面板
+    const fr=document.createElement('div');fr.id='ppt-find';
+    fr.innerHTML='<input id="fr-f" placeholder="查找" style="width:140px">'+
+      '<input id="fr-r" placeholder="替换为" style="width:140px">'+
+      '<button id="fr-nxt">下一个</button>'+
+      '<button id="fr-rep">替换</button>'+
+      '<button id="fr-all">全部替换</button>'+
+      '<button id="fr-cls">✕</button>'+
+      '<span class="fr-stat" id="fr-st">0/0</span>';
+    document.body.appendChild(fr);
+
+    // 对话框 (复用)
+    const ov=document.createElement('div');ov.id='ppt-dialog-overlay';document.body.appendChild(ov);
+    const dia=document.createElement('div');dia.id='ppt-dialog';document.body.appendChild(dia);
+
+    // 全局字体面板
+    const fp=document.createElement('div');fp.id='ppt-font-panel';
+    fp.innerHTML='<h3>🅰 全局字体调整</h3>'+
+      '<label>字体</label><select id="fp-f"><option value="">默认</option><option value="-apple-system,BlinkMacSystemFont,sans-serif">系统默认</option><option value="Georgia,serif">Georgia</option><option value="monospace">Monospace</option></select>'+
+      '<label>基础字号</label><input type="number" id="fp-s" value="16" min="8" max="72">'+
+      '<label>文字颜色</label><input type="color" id="fp-c" value="#ffffff">'+
+      '<label>背景颜色</label><input type="color" id="fp-b" value="#000000">'+
+      '<label>行高</label><input type="number" id="fp-l" value="1.5" min="1" max="3" step="0.1">'+
+      '<div class="fp-row"><button id="fp-ap" class="pri">应用</button><button id="fp-cl">取消</button></div>';
+    document.body.appendChild(fp);
+
+    // 幻灯片母版面板
+    const mp=document.createElement('div');mp.id='ppt-master-panel';
+    mp.innerHTML='<h3>⚙ 幻灯片母版</h3>'+
+      '<label>全局字体</label><select id="mp-f"><option value="">继承</option><option value="-apple-system,BlinkMacSystemFont,sans-serif">系统默认</option><option value="Georgia,serif">Georgia</option><option value="monospace">Monospace</option></select>'+
+      '<label>全局字号</label><input type="number" id="mp-s" value="" placeholder="留空继承" min="8" max="72">'+
+      '<label>全局文字颜色</label><input type="color" id="mp-c" value="#ffffff">'+
+      '<label>默认背景色</label><input type="color" id="mp-b" value="#000000">'+
+      '<label>默认行高</label><input type="number" id="mp-l" value="1.5" min="1" max="3" step="0.1">'+
+      '<div class="mp-row"><button id="mp-ap" class="pri">应用母版</button><button id="mp-cl">取消</button></div>';
+    document.body.appendChild(mp);
 
     // 侧栏、检查器、参考线、缩放条、备注面板、Toast
     [{id:'ppt-sb'},{id:'ppt-in',h:'<div class="ie">选中元素查看属性</div>'},{id:'ppt-gd'},
@@ -354,7 +510,22 @@ class PPTEditor{
     document.getElementById('eb-present').onclick=()=>this._present();
     document.getElementById('eb-notes').onclick=()=>this._toggleNotes();
     document.getElementById('eb-pdf').onclick=()=>this._exportPDF();
-    document.getElementById('eb-h').onclick=()=>toast('＋新增 ⧉复制 🗑删除 📝备注 ▶演示 📄PDF · 左栏拖拽排序 · Cmd+S保存 · Cmd+Z撤销',5000);
+    document.getElementById('eb-h').onclick=()=>toast('＋新增 ⧉复制 🗑删除 📝备注 ▶演示 📄PDF · 左栏拖拽排序 · Cmd+S保存 · Cmd+Z撤销 · Ctrl+F查找',5000);
+
+    // 插入菜单
+    const insBtn=document.getElementById('eb-ins');
+    const insMenu=document.getElementById('ppt-insert-menu');
+    if(insBtn&&insMenu){
+      insBtn.onclick=e=>{e.stopPropagation();insMenu.classList.toggle('on');};
+      document.addEventListener('click',e=>{if(!insMenu.contains(e.target))insMenu.classList.remove('on');});
+      insMenu.querySelectorAll('[data-ins]').forEach(b=>{
+        b.onclick=()=>{this._insert(b.dataset.ins);insMenu.classList.remove('on');};
+      });
+    }
+    // 字体面板
+    document.getElementById('eb-font').onclick=()=>this._showFontPanel();
+    // 母版面板
+    document.getElementById('eb-master').onclick=()=>this._showMasterPanel();
 
     const transSel=document.getElementById('eb-trans');
     if(transSel)transSel.onchange=()=>{this.transition=transSel.value;this._applyTransition();};
@@ -363,11 +534,18 @@ class PPTEditor{
       const el=document.getElementById(id);if(el)el.onclick=()=>this._zoom(v?v:1);
     });
 
+    // 查找替换
+    document.getElementById('fr-cls').onclick=()=>this._hideFind();
+    document.getElementById('fr-nxt').onclick=()=>this._findNext();
+    document.getElementById('fr-rep').onclick=()=>this._findReplace();
+    document.getElementById('fr-all').onclick=()=>this._findReplaceAll();
+
     const onKey=e=>{
       if((e.metaKey||e.ctrlKey)&&e.key==='s'){e.preventDefault();this._save();}
       if((e.metaKey||e.ctrlKey)&&e.key==='z'){e.preventDefault();if(e.shiftKey)this.cmd.redo();else this.cmd.undo();}
       if((e.metaKey||e.ctrlKey)&&e.key==='y'){e.preventDefault();this.cmd.redo();}
-      if(e.key==='Escape'){this._clr();hideGuides();}
+      if((e.metaKey||e.ctrlKey)&&e.key==='f'){e.preventDefault();this._showFind();}
+      if(e.key==='Escape'){this._hideFind();this._hideDialog();this._hideFontPanel();this._hideMasterPanel();this._clr();hideGuides();}
     };
     const onInput=e=>{if(e.target.getAttribute('contenteditable')==='true')this._md();};
     const onUnload=e=>{if(this.d){e.preventDefault();e.returnValue='未保存';}};
@@ -468,9 +646,12 @@ class PPTEditor{
         c.children[1].onclick=e=>{this._mv(i,1);e.stopPropagation();};
         c.lastChild.onclick=e=>{this._del(i);e.stopPropagation();};
       }
-      // 文字选中
-      s.addEventListener('focusin',e=>{
-        if(this.m==='edit'&&e.target.getAttribute('contenteditable')==='true')this._ins(e.target);
+      // 幻灯片空白区域点击 -> 幻灯片属性
+      s.addEventListener('click',e=>{
+        if(this.m!=='edit')return;
+        if(e.target===s||e.target===s.querySelector('.slide-bg')||e.target.classList.contains('pc')||e.target.closest('.pc')){
+          this._slideInspector(s);e.stopPropagation();
+        }
       });
     });
   }
@@ -502,6 +683,7 @@ class PPTEditor{
     // 清除动画属性
     blank.querySelectorAll('[data-ppt-anim]').forEach(e=>e.removeAttribute('data-ppt-anim'));
     cur.after(blank);
+    this.cmd.execute(new SlideAddCommand(blank.outerHTML,curIdx+1,document.getElementById('deck')));
     this._rn();this._sb();
     go(curIdx+1);
     if(this.m==='edit')this._me();
@@ -518,6 +700,7 @@ class PPTEditor{
     dup.querySelectorAll('.pc,.dh').forEach(c=>c.remove());
     dup.querySelectorAll('.ps').forEach(c=>c.classList.remove('ps'));
     cur.after(dup);
+    this.cmd.execute(new SlideAddCommand(dup.outerHTML,curIdx+1,document.getElementById('deck')));
     this._rn();this._sb();
     go(curIdx+1);
     if(this.m==='edit')this._me();
@@ -529,8 +712,7 @@ class PPTEditor{
     const ss=[...document.querySelectorAll('#deck > section.slide')],j=i+d;
     if(j<0||j>=ss.length)return;
     const dk=document.getElementById('deck');
-    if(d>0)dk.insertBefore(ss[i],ss[j].nextSibling);
-    else dk.insertBefore(ss[i],ss[j]);
+    this.cmd.execute(new SlideOrderCommand(dk,i,j));
     this._rn();this._sb();go(j);this._md();
   }
 
@@ -840,7 +1022,274 @@ class PPTEditor{
   _clr(){
     this.sel=null;
     document.querySelectorAll('.ps').forEach(e=>e.classList.remove('ps'));
-    document.getElementById('ppt-in').innerHTML='<div class="ie">选中元素查看属性</div>';
+    document.getElementById('ppt-in').innerHTML='<div class="ie">选中元素查看属性<br>或点击幻灯片空白区域查看幻灯片属性</div>';
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 新增：插入元素系统
+  // ═══════════════════════════════════════════════════════════════
+  _insert(type){
+    const {el:slide}=this._curSlide();if(!slide)return;
+    if(type==='table'){
+      this._dialog('插入表格',
+        '<label>行数</label><input type="number" id="dia-rows" value="3" min="1" max="20">'+
+        '<label>列数</label><input type="number" id="dia-cols" value="3" min="1" max="10">',
+        ()=>{
+          const rows=+document.getElementById('dia-rows').value||3;
+          const cols=+document.getElementById('dia-cols').value||3;
+          const t=document.createElement('table');t.className='ppt-table';
+          let html='<thead><tr>';
+          for(let c=0;c<cols;c++)html+='<th>标题'+(c+1)+'</th>';
+          html+='</tr></thead><tbody>';
+          for(let r=0;r<rows-1;r++){
+            html+='<tr>';
+            for(let c=0;c<cols;c++)html+='<td>内容</td>';
+            html+='</tr>';
+          }
+          html+='</tbody>';t.innerHTML=html;
+          t.style.position='absolute';t.style.left='10%';t.style.top='30%';t.style.width='80%';
+          this._addEl(t,slide);
+        });
+    }else if(type==='code'){
+      this._dialog('插入代码块',
+        '<label>语言</label><select id="dia-lang">'+
+        '<option value="">Plain</option><option value="javascript">JavaScript</option><option value="python">Python</option>'+
+        '<option value="html">HTML</option><option value="css">CSS</option><option value="rust">Rust</option><option value="bash">Bash</option></select>'+
+        '<label>代码</label><textarea id="dia-code" placeholder="粘贴代码..."></textarea>',
+        ()=>{
+          const lang=document.getElementById('dia-lang').value;
+          const code=document.getElementById('dia-code').value;
+          const pre=document.createElement('pre');pre.className='ppt-code-block';
+          if(lang)pre.classList.add('language-'+lang);
+          const cd=document.createElement('code');cd.textContent=code;
+          pre.appendChild(cd);pre.style.position='absolute';pre.style.left='10%';pre.style.top='25%';pre.style.width='80%';
+          this._addEl(pre,slide);
+        });
+    }else if(type==='shape'){
+      this._dialog('插入形状',
+        '<div class="ib" style="margin-bottom:10px"><button data-shape="rect" class="ib btn on" style="width:80px;height:40px;background:#ff6b35;border-radius:4px">矩形</button>'+
+        '<button data-shape="circle" class="ib btn" style="width:40px;height:40px;background:#ff6b35;border-radius:50%">圆形</button>'+
+        '<button data-shape="arrow" class="ib btn" style="width:80px;height:40px;background:#ff6b35;border-radius:2px">箭头</button></div>'+
+        '<label>宽度 (px)</label><input type="number" id="dia-sw" value="120">'+
+        '<label>高度 (px)</label><input type="number" id="dia-sh" value="80">'+
+        '<label>颜色</label><input type="color" id="dia-sc" value="#ff6b35">',
+        ()=>{
+          const w=+document.getElementById('dia-sw').value||120;
+          const h=+document.getElementById('dia-sh').value||80;
+          const c=document.getElementById('dia-sc').value;
+          const d=document.createElement('div');
+          d.className='ppt-shape-rect';d.style.width=w+'px';d.style.height=h+'px';
+          d.style.background=c;d.style.position='absolute';d.style.left='40%';d.style.top='40%';
+          this._addEl(d,slide);
+        });
+    }else if(type==='video'){
+      this._dialog('嵌入视频 / iframe',
+        '<label>URL (YouTube / Vimeo / 任意 URL)</label><input type="text" id="dia-url" placeholder="https://...">'+
+        '<label>宽度 (%)</label><input type="number" id="dia-vw" value="80" min="10" max="100">'+
+        '<label>高度 (px)</label><input type="number" id="dia-vh" value="400" min="100">',
+        ()=>{
+          let url=document.getElementById('dia-url').value.trim();
+          if(!url)return toast('请输入 URL');
+          const vw=+document.getElementById('dia-vw').value||80;
+          const vh=+document.getElementById('dia-vh').value||400;
+          if(url.includes('youtube.com/watch?v=')){
+            const id=new URL(url).searchParams.get('v');
+            url='https://www.youtube.com/embed/'+id;
+          }else if(url.includes('youtu.be/')){
+            url='https://www.youtube.com/embed/'+url.split('youtu.be/')[1].split('?')[0];
+          }
+          const iframe=document.createElement('iframe');
+          iframe.src=url;iframe.style.width=vw+'%';iframe.style.height=vh+'px';
+          iframe.style.border='none';iframe.style.borderRadius='8px';
+          iframe.style.position='absolute';iframe.style.left=((100-vw)/2)+'%';iframe.style.top='20%';
+          iframe.setAttribute('allowfullscreen','');
+          this._addEl(iframe,slide);
+        });
+    }else if(type==='quote'){
+      const bq=document.createElement('blockquote');bq.className='ppt-blockquote';
+      bq.textContent='在这里输入引用内容...';
+      bq.style.position='absolute';bq.style.left='15%';bq.style.top='35%';bq.style.width='70%';
+      bq.setAttribute('contenteditable','true');
+      this._addEl(bq,slide);
+    }else if(type==='image'){
+      this._dialog('插入图片',
+        '<label>图片 URL</label><input type="text" id="dia-iurl" placeholder="https://...">'+
+        '<label>或上传文件</label><input type="file" id="dia-if" accept="image/*">',
+        ()=>{
+          const url=document.getElementById('dia-iurl').value.trim();
+          const file=document.getElementById('dia-if').files[0];
+          const img=document.createElement('img');
+          img.style.maxWidth='60%';img.style.position='absolute';img.style.left='20%';img.style.top='20%';
+          const wrap=document.createElement('div');wrap.className='pw';wrap.appendChild(img);
+          if(url){img.src=url;this._addEl(wrap,slide);}
+          else if(file){const r=new FileReader();r.onload=()=>{img.src=r.result;this._addEl(wrap,slide);};r.readAsDataURL(file);}
+          else{toast('请选择图片');return;}
+          ['tl','tr','bl','br'].forEach(c=>{const h=document.createElement('div');h.className='dh rs '+c;h.dataset.c=c;wrap.appendChild(h);});
+          this._drag(wrap);
+        });
+    }else if(type==='text'){
+      const d=document.createElement('div');d.textContent='文本框';d.setAttribute('contenteditable','true');
+      d.style.position='absolute';d.style.left='40%';d.style.top='40%';d.style.padding='8px 12px';
+      d.style.color='#fff';d.style.fontSize='18px';d.style.background='rgba(255,255,255,.08)';
+      d.style.borderRadius='4px';d.style.minWidth='120px';
+      this._addEl(d,slide);
+    }
+  }
+  _addEl(el,container){
+    this.cmd.execute(new ElementAddCommand(el,container));
+    if(this.m==='edit')this._me();
+    this._ins(el);this._md();
+    toast('已插入');
+  }
+  _dialog(title,html,onConfirm){
+    const ov=document.getElementById('ppt-dialog-overlay');
+    const dia=document.getElementById('ppt-dialog');
+    dia.innerHTML='<h3>'+title+'</h3>'+html+'<div class="dia-btns"><button id="dia-cl">取消</button><button id="dia-ok" class="pri">确定</button></div>';
+    ov.classList.add('on');dia.classList.add('on');
+    document.getElementById('dia-cl').onclick=()=>this._hideDialog();
+    document.getElementById('dia-ok').onclick=()=>{onConfirm();this._hideDialog();};
+  }
+  _hideDialog(){document.getElementById('ppt-dialog-overlay').classList.remove('on');document.getElementById('ppt-dialog').classList.remove('on');}
+
+  // ═══════════════════════════════════════════════════════════════
+  // 新增：查找替换
+  // ═══════════════════════════════════════════════════════════════
+  _showFind(){const f=document.getElementById('ppt-find');f.classList.add('on');document.getElementById('fr-f').focus();this._findIdx=-1;this._findEls=[];}
+  _hideFind(){document.getElementById('ppt-find').classList.remove('on');this._findEls.forEach(s=>s.classList.remove('ps'));this._findEls=[];this._findIdx=-1;}
+  _findAll(){
+    const q=document.getElementById('fr-f').value.trim();if(!q)return [];
+    const els=[];document.querySelectorAll('#deck > section.slide [contenteditable="true"]').forEach(el=>{
+      if(el.textContent.includes(q))els.push(el);
+    });
+    return els;
+  }
+  _findNext(){
+    const q=document.getElementById('fr-f').value.trim();if(!q)return;
+    this._findEls.forEach(s=>s.classList.remove('ps'));
+    this._findEls=this._findAll();const stat=document.getElementById('fr-st');
+    if(!this._findEls.length){stat.textContent='0/0';toast('未找到');return;}
+    this._findIdx=(this._findIdx+1)%this._findEls.length;
+    const el=this._findEls[this._findIdx];el.classList.add('ps');el.scrollIntoView({behavior:'smooth',block:'center'});
+    stat.textContent=(this._findIdx+1)+'/'+this._findEls.length;
+  }
+  _findReplace(){
+    const q=document.getElementById('fr-f').value.trim(),r=document.getElementById('fr-r').value;
+    if(!q||!this._findEls.length)return;
+    const el=this._findEls[this._findIdx];
+    if(!el||!el.textContent.includes(q))return;
+    const oldHTML=el.innerHTML;
+    el.innerHTML=el.innerHTML.split(q).join(r);
+    this.cmd.execute(new TextContentCommand(el,oldHTML,el.innerHTML));
+    this._findEls=this._findAll();this._findIdx=-1;
+    document.getElementById('fr-st').textContent=this._findEls.length+' 处';
+    this._md();
+  }
+  _findReplaceAll(){
+    const q=document.getElementById('fr-f').value.trim(),r=document.getElementById('fr-r').value;
+    if(!q)return;
+    let count=0;
+    document.querySelectorAll('#deck > section.slide [contenteditable="true"]').forEach(el=>{
+      if(el.textContent.includes(q)){
+        const oldHTML=el.innerHTML;
+        el.innerHTML=el.innerHTML.split(q).join(r);
+        if(el.innerHTML!==oldHTML){this.cmd.execute(new TextContentCommand(el,oldHTML,el.innerHTML));count++;}
+      }
+    });
+    toast('已替换 '+count+' 处');this._md();
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 新增：全局字体面板
+  // ═══════════════════════════════════════════════════════════════
+  _showFontPanel(){
+    const p=document.getElementById('ppt-font-panel');p.classList.add('on');
+    document.getElementById('fp-ap').onclick=()=>this._applyFont();
+    document.getElementById('fp-cl').onclick=()=>this._hideFontPanel();
+  }
+  _hideFontPanel(){document.getElementById('ppt-font-panel').classList.remove('on');}
+  _applyFont(){
+    const f=document.getElementById('fp-f').value;
+    const s=document.getElementById('fp-s').value;
+    const c=document.getElementById('fp-c').value;
+    const b=document.getElementById('fp-b').value;
+    const l=document.getElementById('fp-l').value;
+    document.querySelectorAll('#deck > section.slide').forEach(slide=>{
+      if(f)slide.style.fontFamily=f;
+      if(s)slide.style.fontSize=s+'px';
+      if(c)slide.style.color=c;
+      if(b)slide.style.background=b;
+      if(l)slide.style.lineHeight=l;
+    });
+    this._hideFontPanel();this._md();toast('全局字体已应用');
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 新增：幻灯片母版
+  // ═══════════════════════════════════════════════════════════════
+  _showMasterPanel(){
+    const p=document.getElementById('ppt-master-panel');p.classList.add('on');
+    const m=this._master;
+    if(m.fontFamily)document.getElementById('mp-f').value=m.fontFamily;
+    if(m.fontSize)document.getElementById('mp-s').value=m.fontSize;
+    if(m.color)document.getElementById('mp-c').value=m.color;
+    if(m.bgColor)document.getElementById('mp-b').value=m.bgColor;
+    if(m.lineHeight)document.getElementById('mp-l').value=m.lineHeight;
+    document.getElementById('mp-ap').onclick=()=>this._applyMaster();
+    document.getElementById('mp-cl').onclick=()=>this._hideMasterPanel();
+  }
+  _hideMasterPanel(){document.getElementById('ppt-master-panel').classList.remove('on');}
+  _applyMaster(){
+    this._master.fontFamily=document.getElementById('mp-f').value;
+    this._master.fontSize=document.getElementById('mp-s').value;
+    this._master.color=document.getElementById('mp-c').value;
+    this._master.bgColor=document.getElementById('mp-b').value;
+    this._master.lineHeight=document.getElementById('mp-l').value;
+    document.querySelectorAll('#deck > section.slide').forEach(s=>{
+      if(this._master.fontFamily)s.style.fontFamily=this._master.fontFamily;
+      if(this._master.fontSize)s.style.fontSize=this._master.fontSize+'px';
+      if(this._master.color)s.style.color=this._master.color;
+      if(this._master.bgColor)s.style.background=this._master.bgColor;
+      if(this._master.lineHeight)s.style.lineHeight=this._master.lineHeight;
+    });
+    this._hideMasterPanel();this._md();toast('母版已应用');
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 新增：幻灯片级别检查器
+  // ═══════════════════════════════════════════════════════════════
+  _slideInspector(el){
+    this.sel=el;
+    document.querySelectorAll('.ps').forEach(e=>e.classList.remove('ps'));
+    el.classList.add('ps');
+    const ins=document.getElementById('ppt-in');
+    const cs=getComputedStyle(el);
+    const bg=rgbHex(cs.backgroundColor);
+    const trans=el.getAttribute('data-transition')||this.transition||'fade';
+    const layout=el.getAttribute('data-layout')||'custom';
+    ins.innerHTML=
+      `<div class="is"><div class="ih">幻灯片属性</div>`+
+      `<div class="ir"><label>背景色</label><input type="color" id="si-bg" value="${bg}"></div>`+
+      `<div class="ir"><label>过渡效果</label><select id="si-trans" style="width:100px"><option value="fade">淡入</option><option value="slide">滑动</option><option value="zoom">缩放</option><option value="none">无</option></select></div>`+
+      `<div class="ir"><label>布局模板</label><select id="si-layout" style="width:100px"><option value="custom">自定义</option><option value="title">标题页</option><option value="content">内容页</option><option value="two-col">双栏</option><option value="blank">空白</option></select></div></div>`+
+      `<div class="is"><div class="ih">操作</div>`+
+      `<div class="ib"><button id="si-clr" class="ib btn">清除背景</button>`+
+      `<button id="si-reset" class="ib btn">重置样式</button></div></div>`;
+    document.getElementById('si-bg').oninput=e=>{this._slideSty(el,'backgroundColor',e.target.value);};
+    document.getElementById('si-trans').value=trans;
+    document.getElementById('si-trans').onchange=e=>{
+      const v=e.target.value;
+      if(v==='none')el.removeAttribute('data-transition');else el.setAttribute('data-transition',v);
+      this._md();
+    };
+    document.getElementById('si-layout').value=layout;
+    document.getElementById('si-layout').onchange=e=>{el.setAttribute('data-layout',e.target.value);this._md();};
+    document.getElementById('si-clr').onclick=()=>{el.style.backgroundColor='';this._slideInspector(el);this._md();};
+    document.getElementById('si-reset').onclick=()=>{el.removeAttribute('style');this._slideInspector(el);this._md();};
+  }
+  _slideSty(el,p,val){
+    const old=el.style[p];
+    this.cmd.execute(new SlideStyleCommand(el,p,old,val));
+    this._md();
   }
 
   // ── 当前 slide 辅助 ──
