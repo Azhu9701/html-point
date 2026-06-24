@@ -5,8 +5,45 @@
 
 import time
 import shutil
+import re
+import base64
 from pathlib import Path
 from .security import safe_join, sanitize_filename, validate_file_size, strip_injected_scripts
+
+
+# 本地图片路径模式 (macOS / Linux / Windows)
+_LOCAL_IMG_PATTERN = re.compile(
+    r'src="(/(?:Users|home)/[^"]+\.(?:png|jpg|jpeg|gif|webp|svg|bmp))"',
+    re.IGNORECASE
+)
+
+# 文件路径 → MIME 类型映射
+_IMG_MIME = {
+    '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml',
+    '.bmp': 'image/bmp',
+}
+
+
+def embed_local_images(html: str) -> str:
+    """扫描 HTML 中的本地图片路径, 转换为 base64 data URL 内嵌。
+
+    匹配模式: src=\"/Users/...\" 或 src=\"/home/...\" 
+    效果: 导出的 HTML 完全自包含, 无需携带图片文件。
+    """
+    def _replace(match):
+        path = match.group(1)
+        try:
+            ext = Path(path).suffix.lower()
+            mime = _IMG_MIME.get(ext)
+            if not mime:
+                return match.group(0)  # 不支持的格式, 保持原样
+            with open(path, 'rb') as f:
+                b64 = base64.b64encode(f.read()).decode()
+            return f'src="data:{mime};base64,{b64}"'
+        except (FileNotFoundError, PermissionError, OSError):
+            return match.group(0)  # 文件不存在或无权限, 保持原样
+    return _LOCAL_IMG_PATTERN.sub(_replace, html)
 
 
 def list_files(presentations_dir: Path) -> list[dict]:
@@ -36,6 +73,8 @@ def save_file(base_dir: Path, filename: str, html: str) -> dict:
 
     # 清理编辑器注入
     clean = strip_injected_scripts(html)
+    # 内嵌本地图片 → base64 (导出后无需带图片文件)
+    clean = embed_local_images(clean)
     base_dir.mkdir(exist_ok=True)
     dest.write_text(clean, encoding="utf-8")
     return {"ok": True, "path": str(dest), "name": dest.name}
