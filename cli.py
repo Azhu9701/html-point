@@ -1,163 +1,242 @@
 #!/usr/bin/env python3
 """
-HTML Point CLI — 命令行接口
+HTML Point CLI — AI 可调用的演示稿命令行工具
 
 用法:
-  html-point init [name] [--theme=THEME]          初始化新演示稿
-  html-point build <file.json|yaml|md>             从数据文件构建 HTML 幻灯片
-  html-point serve [--port=3099] [--open]          启动编辑服务器
-  html-point convert <input.pptx|md> [--out=DIR]   转换外部格式为 HTML
-  html-point export <file.html> --format=pdf|png|pptx [--out=FILE]
-  html-point theme list                             列出所有主题
-  html-point theme apply <theme> <file.html>       应用主题到演示稿
-  html-point template list                          列出所有布局模板
-  html-point validate <file.html>                   验证演示稿格式
-
-环境变量:
-  HTMLPOINT_PORT    默认服务端口
-  HTMLPOINT_DIR     默认演示文稿目录
+  python3 cli.py list                              # 列出所有演示稿
+  python3 cli.py info demo.html                    # 查看演示稿信息
+  python3 cli.py new "我的演讲" -p 10              # 从模板新建
+  python3 cli.py edit demo.html -s 3 -r "旧" "新"  # 替换文字
+  python3 cli.py edit demo.html -s 5 -i "新页面"   # 插入页面
+  python3 cli.py export demo.html --html --pptx    # 导出
 """
 
-import argparse
-import json
-import os
 import sys
-import textwrap
+import argparse
+import re
 from pathlib import Path
+from datetime import datetime
 
-# 将 src 加入路径
 ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT / "src"))
-
-from engine.builder import SlideBuilder
-from engine.parser import parse_input
-from engine.theme import ThemeManager
-from engine.layout import LayoutManager
-from engine.export import ExportManager
-from cli.commands import (
-    cmd_init, cmd_build, cmd_serve, cmd_convert,
-    cmd_export, cmd_theme, cmd_template, cmd_validate
-)
-from cli.utils import print_error, print_success, print_info
+sys.path.insert(0, str(ROOT))
 
 
-VERSION = "3.0.0"
+def presentations_dir():
+    d = ROOT / "presentations"
+    d.mkdir(exist_ok=True)
+    return d
 
+
+def list_files():
+    files = sorted(
+        presentations_dir().glob("*.html"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not files:
+        print("📭 还没有演示稿, 用 'new' 命令创建一个吧")
+        return []
+    print(f"📂 演示稿 ({len(files)} 个)\n")
+    for i, f in enumerate(files):
+        st = f.stat()
+        print(f"  {i+1}. {f.name}  |  {f.stat().st_size/1024:.0f} KB  |  "
+              f"{datetime.fromtimestamp(st.st_mtime).strftime('%m-%d %H:%M')}")
+    return files
+
+
+def _extract_title(filepath):
+    try:
+        html = filepath.read_text(encoding="utf-8")
+        m = re.search(r"<title>([^<]+)</title>", html)
+        return m.group(1).strip() if m else ""
+    except Exception:
+        return ""
+
+
+def info_file(filepath):
+    p = presentations_dir() / filepath
+    if not p.exists():
+        p = Path(filepath)
+    if not p.exists():
+        print(f"✗ 文件不存在: {filepath}")
+        return
+    html = p.read_text(encoding="utf-8")
+    slides = re.findall(
+        r'<section[^>]*class="[^"]*slide[^"]*"[^>]*>(.*?)</section>', html, re.S
+    )
+    title = _extract_title(p)
+    print(f"📄 {p.name}")
+    print(f"   标题: {title or '(无)'}")
+    print(f"   页码: {len(slides)} 页\n")
+    for i, s in enumerate(slides):
+        txt = re.sub(r"<[^>]+>", " ", s)
+        txt = re.sub(r"\s+", " ", txt).strip()[:80]
+        print(f"   [{i+1:02d}] {txt}...")
+
+
+def _resolve_path(filepath):
+    p = presentations_dir() / filepath
+    if p.exists():
+        return p
+    p = Path(filepath)
+    return p if p.exists() else None
+
+
+# ── new ──
+
+def cmd_new(title, pages=10, template="dark-tech"):
+    from src.template import BUILTIN_TEMPLATES
+    from src.storage import save_file
+
+    if template not in BUILTIN_TEMPLATES:
+        print(f"✗ 未知模板: {template}")
+        return
+    tpl = BUILTIN_TEMPLATES[template]
+
+    demo = ROOT / "presentations" / "demo.html"
+    if not demo.exists():
+        demo = ROOT.parent / "2026机器人入职各行各业-演示.html"
+    if not demo.exists():
+        demos = list(presentations_dir().glob("*.html"))
+        demo = demos[0] if demos else None
+    if not demo:
+        print("✗ 找不到模板骨架文件")
+        return
+
+    html = demo.read_text(encoding="utf-8")
+    html = re.sub(r"<title>[^<]*</title>", f"<title>{title}</title>", html)
+    for var, val in [("--paper", tpl["paper"]), ("--ink", tpl["ink"]), ("--accent", tpl["accent"])]:
+        html = re.sub(rf"{re.escape(var)}:#[0-9a-fA-F]{{6}}", f"{var}:{val}", html)
+
+    # 调整页数
+    slides = list(re.finditer(r'<section[^>]*class="[^"]*slide[^"]*"[^>]*>', html))
+    current = len(slides)
+    if pages < current:
+        for m in reversed(slides[pages:]):
+            end = html.find("</section>", m.start())
+            if end > 0:
+                html = html[: m.start()] + html[end + 10 :]
+    elif pages > current:
+        last = slides[-1]
+        end = html.find("</section>", last.start()) + 10
+        template_slide = html[last.start() : end]
+        for _ in range(pages - current):
+            pos = html.rfind("</section>") + 10
+            html = html[:pos] + "\n" + template_slide + html[pos:]
+
+    html = re.sub(r">(\d+) / (\d+)<", lambda m: f">{m.group(1)} / {pages}<", html)
+    name = title.replace(" ", "-").replace("/", "-") + ".html"
+    result = save_file(presentations_dir(), name, html)
+    if result["ok"]:
+        print(f"✅ 已创建: {result['name']} ({pages} 页)")
+    else:
+        print(f"✗ {result.get('error')}")
+
+
+# ── edit ──
+
+def cmd_edit_replace(filepath, idx, old, new):
+    p = _resolve_path(filepath)
+    if not p:
+        return print(f"✗ 文件不存在")
+    html = p.read_text(encoding="utf-8")
+    slides = list(re.finditer(r'<section[^>]*class="[^"]*slide[^"]*"[^>]*>.*?</section>', html, re.S))
+    if idx < 0 or idx >= len(slides):
+        return print(f"✗ 页码超出范围 (共 {len(slides)} 页)")
+    slide_html = slides[idx].group(0)
+    if old not in slide_html:
+        return print(f"✗ 找不到 \"{old}\"")
+    html = html[:slides[idx].start()] + slide_html.replace(old, new) + html[slides[idx].end():]
+    p.write_text(html, encoding="utf-8")
+    print(f"✅ 已替换")
+
+
+def cmd_edit_insert(filepath, idx, text):
+    p = _resolve_path(filepath)
+    if not p:
+        return print(f"✗ 文件不存在")
+    html = p.read_text(encoding="utf-8")
+    slides = list(re.finditer(r'<section[^>]*class="[^"]*slide[^"]*"[^>]*>.*?</section>', html, re.S))
+    if idx < 0 or idx >= len(slides):
+        return print(f"✗ 页码超出范围")
+    ns = slides[idx].group(0)
+    ns = re.sub(r"<h[1-6][^>]*>.*?</h[1-6]>", f'<h2 style="color:#fff">{text}</h2>', ns, count=1)
+    html = html[:slides[idx].end()] + "\n" + ns + html[slides[idx].end():]
+    html = re.sub(r">(\d+) / (\d+)<", lambda m: f">{m.group(1)} / {len(slides)+1}<", html)
+    p.write_text(html, encoding="utf-8")
+    print(f"✅ 已插入")
+
+
+def cmd_edit_delete(filepath, idx):
+    p = _resolve_path(filepath)
+    if not p:
+        return print(f"✗ 文件不存在")
+    html = p.read_text(encoding="utf-8")
+    slides = list(re.finditer(r'<section[^>]*class="[^"]*slide[^"]*"[^>]*>.*?</section>', html, re.S))
+    if len(slides) <= 1:
+        return print("✗ 至少保留一页")
+    html = html[:slides[idx].start()] + html[slides[idx].end():]
+    html = re.sub(r">(\d+) / (\d+)<", lambda m: f">{m.group(1)} / {len(slides)-1}<", html)
+    p.write_text(html, encoding="utf-8")
+    print(f"✅ 已删除")
+
+
+# ── export ──
+
+def cmd_export(filepath, out_dir, html_fmt=True, pptx_fmt=False):
+    p = _resolve_path(filepath)
+    if not p:
+        return print(f"✗ 文件不存在")
+    out = Path(out_dir) if out_dir else Path.home() / "Desktop"
+    out.mkdir(parents=True, exist_ok=True)
+    stem = p.stem
+
+    if html_fmt:
+        from src import security, editor_injector, storage
+        h = p.read_text(encoding="utf-8")
+        h = security.strip_scripts_whitelist(h)
+        for js, mk in [(ROOT/"web/core.js","ppt-core"), (ROOT/"web/presenter.js","ppt-presenter")]:
+            if js.exists():
+                h = editor_injector.inject(h, str(js), marker=mk)
+        h = h.replace("</head>",
+            "<style>#ppt-bar,#ppt-sb,#ppt-in,#ppt-gd,#ppt-zm,#ppt-to,#ppt-notes-panel,"
+            "#ppt-pres-bar,.pc,.dh,.ppt-page-controls,.ppt-drag-handle,#nav,#hint"
+            "{display:none!important}"
+            " body.pe .slide{padding-left:5vw!important;padding-right:5vw!important}"
+            " body.pe .canvas-card{margin-left:0!important;width:100vw!important}</style></head>", 1)
+        h = storage.embed_local_images(h)
+        fout = out / f"{stem}.html"
+        fout.write_text(h, encoding="utf-8")
+        print(f"✅ HTML: {fout} ({fout.stat().st_size/1024:.0f} KB)")
+
+    if pptx_fmt:
+        from src.export_pptx import export_to_pptx
+        fout = out / f"{stem}.pptx"
+        export_to_pptx(p, fout)
+        print(f"✅ PPTX: {fout} ({fout.stat().st_size/1024:.0f} KB)")
+
+
+# ── main ──
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="html-point",
-        description="HTML Point — 开源 Keynote 替代 · CLI",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent("""\
-            示例:
-              html-point init my-presentation --theme=dark-tech
-              html-point build slides.json --out=output.html
-              html-point serve --port 3099
-              html-point export presentation.html --format=pdf
-        """),
-    )
-    parser.add_argument("-v", "--version", action="version", version=f"%(prog)s {VERSION}")
-    parser.add_argument("--dir", default=os.environ.get("HTMLPOINT_DIR", "presentations"), help="演示文稿目录")
-    parser.add_argument("--verbose", "-V", action="store_true", help="详细输出")
-
-    subparsers = parser.add_subparsers(dest="command", help="可用命令")
-
-    # ── init ──
-    p_init = subparsers.add_parser("init", help="初始化新演示稿")
-    p_init.add_argument("name", nargs="?", default="untitled", help="演示稿名称")
-    p_init.add_argument("--theme", "-t", default="dark-tech", help="主题 (默认: dark-tech)")
-    p_init.add_argument("--layout", "-l", default="title", help="初始布局 (默认: title)")
-    p_init.add_argument("--slides", "-s", type=int, default=5, help="初始幻灯片数量 (默认: 5)")
-    p_init.add_argument("--out", "-o", help="输出路径 (默认: {name}.html)")
-
-    # ── build ──
-    p_build = subparsers.add_parser("build", help="从数据文件构建 HTML 幻灯片")
-    p_build.add_argument("input", help="输入文件 (JSON/YAML/Markdown)")
-    p_build.add_argument("--out", "-o", required=True, help="输出 HTML 文件路径")
-    p_build.add_argument("--theme", "-t", default="dark-tech", help="主题")
-    p_build.add_argument("--watch", "-w", action="store_true", help="监听文件变化并自动重建")
-
-    # ── serve ──
-    p_serve = subparsers.add_parser("serve", help="启动编辑服务器")
-    p_serve.add_argument("--port", "-p", type=int, default=int(os.environ.get("HTMLPOINT_PORT", 3099)), help="端口")
-    p_serve.add_argument("--open", action="store_true", help="自动打开浏览器")
-    p_serve.add_argument("--no-browser", action="store_true", help="不自动打开浏览器")
-
-    # ── convert ──
-    p_convert = subparsers.add_parser("convert", help="转换外部格式")
-    p_convert.add_argument("input", help="输入文件 (PPTX/Markdown/MD)")
-    p_convert.add_argument("--out", "-o", help="输出目录")
-    p_convert.add_argument("--theme", "-t", default="dark-tech", help="主题")
-
-    # ── export ──
-    p_export = subparsers.add_parser("export", help="导出演示稿")
-    p_export.add_argument("input", help="输入 HTML 文件")
-    p_export.add_argument("--format", "-f", required=True, choices=["pdf", "png", "pptx", "html-zip"], help="导出格式")
-    p_export.add_argument("--out", "-o", help="输出文件路径")
-    p_export.add_argument("--width", type=int, default=1920, help="导出宽度")
-    p_export.add_argument("--height", type=int, default=1080, help="导出高度")
-    p_export.add_argument("--all-pages", action="store_true", help="导出所有页面 (PNG)")
-
-    # ── theme ──
-    p_theme = subparsers.add_parser("theme", help="主题管理")
-    p_theme_sub = p_theme.add_subparsers(dest="theme_cmd", help="主题子命令")
-    p_theme_sub.add_parser("list", help="列出所有主题")
-    p_theme_apply = p_theme_sub.add_parser("apply", help="应用主题到演示稿")
-    p_theme_apply.add_argument("theme", help="主题名称")
-    p_theme_apply.add_argument("file", help="演示稿文件")
-    p_theme_apply.add_argument("--out", "-o", help="输出路径 (默认覆盖原文件)")
-
-    # ── template ──
-    p_template = subparsers.add_parser("template", help="布局模板管理")
-    p_template_sub = p_template.add_subparsers(dest="template_cmd", help="模板子命令")
-    p_template_sub.add_parser("list", help="列出所有布局模板")
-    p_template_info = p_template_sub.add_parser("info", help="查看模板详情")
-    p_template_info.add_argument("name", help="模板名称")
-
-    # ── validate ──
-    p_validate = subparsers.add_parser("validate", help="验证演示稿格式")
-    p_validate.add_argument("file", help="HTML 演示稿文件")
-    p_validate.add_argument("--json", action="store_true", help="JSON 格式输出")
+    parser = argparse.ArgumentParser(prog="html-point", description="HTML Point CLI")
+    sub = parser.add_subparsers(dest="cmd")
+    sub.add_parser("list", help="列出所有演示稿")
+    p = sub.add_parser("info", help="查看演示稿信息"); p.add_argument("file")
+    p = sub.add_parser("new", help="新建演示稿"); p.add_argument("title"); p.add_argument("-p","--pages",type=int,default=10); p.add_argument("-t","--template",default="dark-tech")
+    p = sub.add_parser("edit", help="编辑演示稿"); p.add_argument("file"); p.add_argument("-s","--slide",type=int,default=1); p.add_argument("-r","--replace",nargs=2); p.add_argument("-i","--insert"); p.add_argument("--delete",action="store_true")
+    p = sub.add_parser("export", help="导出"); p.add_argument("file"); p.add_argument("-o","--output"); p.add_argument("--html",action="store_true",default=True); p.add_argument("--pptx",action="store_true")
 
     args = parser.parse_args()
-
-    if not args.command:
-        parser.print_help()
-        sys.exit(0)
-
-    # 分发命令
-    commands = {
-        "init": cmd_init,
-        "build": cmd_build,
-        "serve": cmd_serve,
-        "convert": cmd_convert,
-        "export": cmd_export,
-        "theme": cmd_theme,
-        "template": cmd_template,
-        "validate": cmd_validate,
-    }
-
-    try:
-        handler = commands.get(args.command)
-        if handler:
-            result = handler(args)
-            if result and not result.get("ok", True):
-                print_error(result.get("error", "未知错误"))
-                sys.exit(1)
-        else:
-            print_error(f"未知命令: {args.command}")
-            sys.exit(1)
-    except KeyboardInterrupt:
-        print_info("\n已取消")
-        sys.exit(0)
-    except Exception as e:
-        if args.verbose:
-            import traceback
-            traceback.print_exc()
-        print_error(str(e))
-        sys.exit(1)
-
+    if args.cmd == "list" or args.cmd is None: list_files()
+    elif args.cmd == "info": info_file(args.file)
+    elif args.cmd == "new": cmd_new(args.title, args.pages, args.template)
+    elif args.cmd == "edit":
+        if args.replace: cmd_edit_replace(args.file, args.slide-1, args.replace[0], args.replace[1])
+        elif args.insert: cmd_edit_insert(args.file, args.slide-1, args.insert)
+        elif args.delete: cmd_edit_delete(args.file, args.slide-1)
+        else: print("请指定 --replace, --insert 或 --delete")
+    elif args.cmd == "export": cmd_export(args.file, args.output, args.html, args.pptx)
 
 if __name__ == "__main__":
     main()
