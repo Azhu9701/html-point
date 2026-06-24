@@ -159,7 +159,7 @@ def _build_closing_items(items):
         )
     return html
 
-def build_presentation(spec_or_path, presentations_dir, template_key="dark-tech"):
+def build_presentation(spec_or_path, presentations_dir, design_key="tokyo-night"):
     """从 JSON 规范构建演示稿"""
     if isinstance(spec_or_path, str) and spec_or_path.endswith(".json"):
         spec = json.loads(Path(spec_or_path).read_text(encoding="utf-8"))
@@ -169,33 +169,54 @@ def build_presentation(spec_or_path, presentations_dir, template_key="dark-tech"
         spec = spec_or_path
 
     title = spec.get("title","演示稿")
+    design_key = spec.get("design","tokyo-night")  # 新增: 设计系统选择
     slides_spec = spec.get("slides",[])
     total = len(slides_spec)
 
-    # 读取模板 CSS
-    from .template import BUILTIN_TEMPLATES
-    tpl = BUILTIN_TEMPLATES.get(template_key, BUILTIN_TEMPLATES["dark-tech"])
-    demo = ROOT / "presentations" / "demo.html"
-    if not demo.exists():
-        demo = ROOT.parent / "2026机器人入职各行各业-演示.html"
-    if not demo.exists():
-        demos = list(presentations_dir.glob("*.html"))
-        demo = demos[0] if demos else None
+    # 注入设计系统 CSS Token
+    from .design import get_css_for, get as get_design
+    ds = get_design(design_key) or get_design("tokyo-night")
+    css_vars = get_css_for(design_key)
+    tp = ds.type   # 排版 Token
+    sp = ds.spacing  # 间距 Token
 
-    html = demo.read_text(encoding="utf-8") if demo else ""
-    if html:
-        # 只保留 <head> 里的 CSS，替换 <body> 内容
-        head_end = html.find("</head>")
-        if head_end < 0:
-            head_end = html.find("<body")
-        css_part = html[:head_end] if head_end > 0 else "<!DOCTYPE html>\n<html><head><meta charset='UTF-8'></head>"
-        html = re.sub(r"<title>[^<]*</title>", f"<title>{title}</title>", css_part)
-        for var, val in [("--paper",tpl["paper"]),("--ink",tpl["ink"]),("--accent",tpl["accent"])]:
-            html = re.sub(rf"{re.escape(var)}:#[0-9a-fA-F]{{6}}", f"{var}:{val}", html)
-    else:
-        html = "<!DOCTYPE html>\n<html><head><meta charset='UTF-8'></head>"
-
-    html += "\n<body>\n<div id='deck'>"
+    # 构造 HTML
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@200;300;400;500;700;900&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {{{css_vars}
+    --sans:{tp.family_heading};
+    --sans-zh:'PingFang SC','Noto Sans SC',system-ui,sans-serif;
+    --mono:{tp.family_mono};
+    --sp-xs:{sp.xs};--sp-sm:{sp.sm};--sp-md:{sp.md};--sp-lg:{sp.lg};--sp-xl:{sp.xl};--sp-xxl:{sp.xxl};
+  }}
+  * {{box-sizing:border-box;margin:0;padding:0}}
+  html,body {{width:100%;height:100%;overflow:hidden;background:var(--paper);color:var(--ink);font-family:var(--sans),var(--sans-zh);font-feature-settings:"ss01","cv11";-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}}
+  #deck {{position:fixed;inset:0;width:{total*100}vw;height:100vh;display:flex;flex-wrap:nowrap;transition:transform .9s cubic-bezier(.77,0,.175,1);z-index:10;will-change:transform}}
+  .slide {{width:100vw;height:100vh;flex:0 0 100vw;position:relative;display:flex;flex-direction:column;overflow:hidden;background:var(--paper);color:var(--ink)}}
+  .slide.grey {{background:var(--grey-1)}}
+  .slide.dark {{background:var(--paper);color:var(--ink)}}
+  .chrome-min {{display:flex;justify-content:space-between;align-items:center;font-size:{tp.size_xs};color:var(--text-helper)}}
+  .split-half {{display:flex;gap:var(--sp-lg)}}
+  .half {{flex:1;display:flex;flex-direction:column;justify-content:center}}
+  .sub-card {{background:var(--grey-1);border-radius:6px;transition:transform .15s}}
+  .sub-card:hover {{transform:translateY(-2px)}}
+  .canvas-card {{width:100%;max-width:{ds.layout.max_width};margin:0 auto}}
+  #nav {{position:fixed;left:50%;bottom:2vh;transform:translateX(-50%);z-index:30;display:flex;gap:10px}}
+  #nav .dot {{width:6px;height:6px;background:rgba(128,128,128,.28);cursor:pointer;transition:all .25s;border:0;padding:0;border-radius:0}}
+  #nav .dot.active {{background:var(--accent);width:18px}}
+  [data-anim] {{opacity:1}}
+</style>
+</head>
+<body>
+<div id="deck">"""
 
     for i, s in enumerate(slides_spec):
         lname = s.get("layout","statement")
@@ -235,7 +256,17 @@ def build_presentation(spec_or_path, presentations_dir, template_key="dark-tech"
         slide_html = tpl_html.format(**vars)
         html += "\n" + slide_html
 
-    html += "\n</div>\n<div id='nav'></div>\n</body>\n</html>"
+    html += "\n</div>\n<div id='nav'></div>\n"
+    html += "<script>"
+    html += "const d=document.getElementById('deck'),s=d.querySelectorAll('.slide'),t=s.length;let i=0,l=0;window.__currentSlideIndex=0;"
+    html += "function go(n){if(l)return;i=Math.max(0,Math.min(t-1,n));window.__currentSlideIndex=i;d.style.transform='translateX('+(-i*100)+'vw)';"
+    html += "const v=document.getElementById('nav');if(v)v.querySelectorAll('.dot').forEach((d,k)=>d.classList.toggle('active',k===i));l=1;setTimeout(()=>l=0,700)}"
+    html += "document.addEventListener('keydown',e=>{if(e.target.isContentEditable||['INPUT','TEXTAREA','SELECT'].includes(e.target.tagName))return;"
+    html += "if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' '||e.key==='PageDown'){e.preventDefault();go(i+1)}"
+    html += "else if(e.key==='ArrowLeft'||e.key==='ArrowUp'||e.key==='PageUp'){e.preventDefault();go(i-1)}"
+    html += "else if(e.key==='Home'){e.preventDefault();go(0)}else if(e.key==='End'){e.preventDefault();go(t-1)}});"
+    html += "const v=document.getElementById('nav');if(v)s.forEach((_,k)=>{const b=document.createElement('button');b.className='dot';b.dataset.i=k;b.onclick=()=>go(k);v.appendChild(b)});go(0);"
+    html += "</script>\n</body>\n</html>"
 
     name = title.replace(" ","-").replace("/","-").replace("·","-") + ".html"
     name = re.sub(r"-+","-", name)
