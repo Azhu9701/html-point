@@ -117,11 +117,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 html = editor_injector.inject(html, str(PRESENTER_JS), marker="ppt-presenter")
             return self._send(200, html)
 
-        # 静态文件 (安全: 只允许 WEB_DIR 内的 .css/.js 文件)
+        # 静态文件 (安全: 只允许 WEB_DIR 内的媒体文件)
         if path.startswith("/web/"):
             requested = os.path.basename(path)
             ext = os.path.splitext(requested)[1].lower()
-            if ext not in (".css", ".js"):
+            allowed = {".css":"text/css", ".js":"application/javascript",
+                       ".png":"image/png", ".jpg":"image/jpeg", ".jpeg":"image/jpeg",
+                       ".gif":"image/gif", ".webp":"image/webp", ".svg":"image/svg+xml"}
+            if ext not in allowed:
                 return self._send(400, "不支持的文件类型")
             fp = (WEB_DIR / requested).resolve()
             try:
@@ -129,8 +132,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             except ValueError:
                 return self._send(400, "路径被拒绝")
             if fp.exists() and fp.is_file():
-                ct = "text/css" if ext == ".css" else "application/javascript"
-                return self._send(200, fp.read_bytes(), ct)
+                return self._send(200, fp.read_bytes(), allowed[ext])
 
         return self._send(404, "Not Found")
 
