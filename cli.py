@@ -216,19 +216,47 @@ def cmd_export(filepath, out_dir, html_fmt=True, pptx_fmt=False):
         print(f"✅ PPTX: {fout} ({fout.stat().st_size/1024:.0f} KB)")
 
 
+# ── build ──
+
+def cmd_build(spec_file, template="dark-tech"):
+    """从 JSON 规范文件构建演示稿"""
+    spec_path = Path(spec_file)
+    if not spec_path.exists():
+        print(f"✗ 规范文件不存在: {spec_file}")
+        return
+    spec = spec_path.read_text(encoding="utf-8")
+    from src.builder import build_presentation
+    result = build_presentation(spec, presentations_dir(), template)
+    if result.get("ok"):
+        print(f"✅ 已构建: {result['name']}")
+        print(f"   编辑: http://localhost:3099/edit?file={result['name']}")
+    else:
+        print(f"✗ {result.get('error', '失败')}")
+
+
 # ── main ──
 
 def main():
     parser = argparse.ArgumentParser(prog="html-point", description="HTML Point CLI")
     sub = parser.add_subparsers(dest="cmd")
     sub.add_parser("list", help="列出所有演示稿")
+    sub.add_parser("layouts", help="列出可用幻灯片布局")
     p = sub.add_parser("info", help="查看演示稿信息"); p.add_argument("file")
     p = sub.add_parser("new", help="新建演示稿"); p.add_argument("title"); p.add_argument("-p","--pages",type=int,default=10); p.add_argument("-t","--template",default="dark-tech")
     p = sub.add_parser("edit", help="编辑演示稿"); p.add_argument("file"); p.add_argument("-s","--slide",type=int,default=1); p.add_argument("-r","--replace",nargs=2); p.add_argument("-i","--insert"); p.add_argument("--delete",action="store_true")
     p = sub.add_parser("export", help="导出"); p.add_argument("file"); p.add_argument("-o","--output"); p.add_argument("--html",action="store_true",default=True); p.add_argument("--pptx",action="store_true")
+    p = sub.add_parser("build", help="从 JSON 规范构建"); p.add_argument("spec", help="JSON 规范文件"); p.add_argument("-t","--template",default="dark-tech")
 
     args = parser.parse_args()
     if args.cmd == "list" or args.cmd is None: list_files()
+    elif args.cmd == "layouts":
+        from src.builder import LAYOUT_CATALOG
+        print("📐 可用幻灯片布局\n")
+        for k, v in LAYOUT_CATALOG.items():
+            print(f"  {k:12s}  {v['name']}")
+            print(f"             {v['description']}")
+            print(f"             字段: {', '.join(v['fields'])}")
+            print()
     elif args.cmd == "info": info_file(args.file)
     elif args.cmd == "new": cmd_new(args.title, args.pages, args.template)
     elif args.cmd == "edit":
@@ -237,6 +265,7 @@ def main():
         elif args.delete: cmd_edit_delete(args.file, args.slide-1)
         else: print("请指定 --replace, --insert 或 --delete")
     elif args.cmd == "export": cmd_export(args.file, args.output, args.html, args.pptx)
+    elif args.cmd == "build": cmd_build(args.spec, args.template)
 
 if __name__ == "__main__":
     main()
