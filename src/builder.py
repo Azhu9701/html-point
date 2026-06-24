@@ -1,7 +1,8 @@
-"""演示稿结构化构建器
+"""演示稿结构化构建器 v2
 
 从 JSON 规范生成 HTML Point 演示稿。
-AI 只需描述内容 + 选布局，排版由模板引擎负责。
+每个布局使用干净的硬编码模板，不残留 demo 文字。
+AI 只需描述内容 + 选布局，排版由模板负责。
 """
 
 import json
@@ -11,285 +12,232 @@ from .storage import save_file
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# 布局目录: AI 可用的幻灯片布局
-LAYOUT_CATALOG = {
-    "hero": {
-        "layout": "S01", "animate": "hero",
-        "name": "封面",
-        "description": "大标题 + 副标题 + 作者，适合第一页",
-        "fields": ["title", "subtitle", "author", "date"],
-    },
-    "statement": {
-        "layout": "S03", "animate": "statement",
-        "name": "宣言页",
-        "description": "左侧大标题 + 右侧说明文字，适合抛出核心观点",
-        "fields": ["label", "title", "body"],
-    },
-    "progression": {
-        "layout": "S02", "animate": "progression",
-        "name": "时间线/进度",
-        "description": "上方时间线 + 下方 KPI 数字，适合展示演进或里程碑",
-        "fields": ["label", "title", "milestones"],
-    },
-    "grid": {
-        "layout": "S05", "animate": "grid-reveal",
-        "name": "网格卡片",
-        "description": "2×N 卡片网格，适合并列展示多个要点",
-        "fields": ["section", "items"],
-    },
-    "split": {
-        "layout": "S08", "animate": "duo-mirror",
-        "name": "左右对比",
-        "description": "左文右图或左右对比，适合对比分析",
-        "fields": ["left_title", "left_body", "right_title", "right_body"],
-    },
-    "closing": {
-        "layout": "S10", "animate": "split-statement",
-        "name": "结尾页·双栏",
-        "description": "左栏感谢 + 右栏要点，适合最后一页",
-        "fields": ["thank_title", "thank_sub", "summary_items"],
-    },
-    "manifesto": {
-        "layout": "S12", "animate": "manifesto",
-        "name": "宣言/愿景",
-        "description": "全幅大字宣言 + 底部署名，适合愿景陈述",
-        "fields": ["title", "body", "signature"],
-    },
-    "matrix": {
-        "layout": "S15", "animate": "matrix-fill",
-        "name": "矩阵/全景图",
-        "description": "N×N 矩阵表格，适合产业全景或对比图表",
-        "fields": ["title", "rows", "cols", "cells"],
-    },
-    "field": {
-        "layout": "S16", "animate": "field-notes",
-        "name": "领域笔记",
-        "description": "卡片 + 要点布局，适合展开某个话题",
-        "fields": ["label", "title", "points"],
-    },
-    "whynow": {
-        "layout": "S18", "animate": "why-now",
-        "name": "为什么是现在",
-        "description": "3 个并列论点卡片，适合论证时机成熟",
-        "fields": ["title", "reasons"],
-    },
-    "cards": {
-        "layout": "S19", "animate": "four-cards",
-        "name": "四卡片",
-        "description": "4 张并列卡片，适合展示机会或方案",
-        "fields": ["title", "cards"],
-    },
+# ═══════════════════════════════════════════
+# 干净布局模板 (不从 demo 提取，无残留文字)
+# ═══════════════════════════════════════════
+
+TEMPLATES = {
+    "hero": """<section class="slide dark trans-fade" data-layout="S01" data-animate="hero" style="font-size:11px;color:#fff;background:#000">
+  <div class="canvas-card" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;height:100%;gap:3vh;padding:5vh 8vw">
+    <div class="chrome-min" style="display:flex;justify-content:space-between;width:100%">
+      <span style="color:rgba(255,255,255,.45)">{page}</span>
+      <span style="color:var(--accent);letter-spacing:.15em;font-size:11px">{tagline}</span>
+    </div>
+    <h1 style="font-family:var(--sans);font-size:min(7vw,12vh);font-weight:200;line-height:1.05;letter-spacing:-.03em;color:#fff;max-width:16ch;margin-top:2vh">{title}</h1>
+    <p style="font-family:var(--sans),var(--sans-zh);font-size:max(18px,1.4vw);color:rgba(255,255,255,.7);font-weight:300;max-width:44ch;line-height:1.5">{subtitle}</p>
+    <div style="margin-top:3vh;font-family:var(--sans);font-size:max(14px,1vw);color:rgba(255,255,255,.45)">{author} · {date}</div>
+  </div>
+</section>""",
+
+    "statement": """<section class="slide dark trans-fade" data-layout="S03" data-animate="statement" style="font-size:11px;color:#fff;background:#000">
+  <div class="canvas-card" style="padding:6vh 5vw;height:100%">
+    <div class="chrome-min">
+      <span style="color:rgba(255,255,255,.45)">{page}</span>
+      <span style="color:var(--accent);letter-spacing:.15em">{label}</span>
+    </div>
+    <div class="split-half" style="margin-top:4vh;gap:4vw">
+      <div class="half">
+        <h2 style="font-family:var(--sans),var(--sans-zh);font-size:min(5vw,9vh);font-weight:200;line-height:1.1;letter-spacing:-.025em;color:#fff">{title}</h2>
+      </div>
+      <div class="half">
+        <p style="font-family:var(--sans),var(--sans-zh);font-size:max(18px,1.2vw);line-height:1.75;color:rgba(255,255,255,.75);font-weight:300">{body}</p>
+      </div>
+    </div>
+  </div>
+</section>""",
+
+    "grid": """<section class="slide dark trans-fade" data-layout="S05" data-animate="grid-reveal" style="font-size:11px;color:#fff;background:#000">
+  <div class="canvas-card" style="padding:5vh 4vw;height:100%">
+    <div class="chrome-min">
+      <span style="color:rgba(255,255,255,.45)">{page}</span>
+      <span style="color:var(--accent);letter-spacing:.15em">{section}</span>
+    </div>
+    <h3 style="font-family:var(--sans);font-size:max(20px,1.5vw);font-weight:300;color:#fff;margin:3vh 0 2vh">{section_title}</h3>
+    <div class="sub-grid-3-2" style="display:grid;grid-template-columns:1fr 1fr;gap:2vh 2vw">{items_html}</div>
+  </div>
+</section>""",
+
+    "whynow": """<section class="slide dark trans-fade" data-layout="S18" data-animate="why-now" style="font-size:11px;color:#fff;background:#000">
+  <div class="canvas-card" style="padding:5vh 4vw;height:100%">
+    <div class="chrome-min">
+      <span style="color:rgba(255,255,255,.45)">{page}</span>
+      <span style="color:var(--accent);letter-spacing:.15em">{label}</span>
+    </div>
+    <h2 style="font-family:var(--sans);font-size:min(5vw,8vh);font-weight:200;color:#fff;margin:3vh 0 2vh;letter-spacing:-.02em">{title}</h2>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:2.5vw;margin-top:3vh">{reasons_html}</div>
+  </div>
+</section>""",
+
+    "split": """<section class="slide dark trans-fade" data-layout="S08" data-animate="duo-mirror" style="font-size:11px;color:#fff;background:#000">
+  <div class="canvas-card" style="padding:5vh 4vw;height:100%">
+    <div class="chrome-min">
+      <span style="color:rgba(255,255,255,.45)">{page}</span>
+      <span style="color:var(--accent);letter-spacing:.15em">{label}</span>
+    </div>
+    <div class="split-half" style="margin-top:4vh;gap:3vw">
+      <div class="half" style="border-right:1px solid var(--border-subtle);padding-right:3vw">
+        <div style="color:rgba(255,255,255,.45);font-size:12px;letter-spacing:.15em;margin-bottom:2vh">{left_label}</div>
+        <p style="font-family:var(--sans),var(--sans-zh);font-size:max(17px,1.1vw);line-height:1.7;color:rgba(255,255,255,.65);font-weight:300">{left_body}</p>
+      </div>
+      <div class="half">
+        <div style="color:var(--accent);font-size:12px;letter-spacing:.15em;margin-bottom:2vh">{right_label}</div>
+        <p style="font-family:var(--sans),var(--sans-zh);font-size:max(17px,1.1vw);line-height:1.7;color:rgba(255,255,255,.82);font-weight:300">{right_body}</p>
+      </div>
+    </div>
+  </div>
+</section>""",
+
+    "closing": """<section class="slide dark trans-fade" data-layout="S10" data-animate="split-statement" style="font-size:11px;color:#fff;background:#000">
+  <div class="canvas-card" style="padding:6vh 5vw;height:100%;max-width:900px;margin:0 auto">
+    <div class="chrome-min">
+      <span style="color:rgba(255,255,255,.45)">{page}</span>
+      <span style="color:var(--accent);letter-spacing:.15em">{tagline}</span>
+    </div>
+    <div style="margin-top:5vh">
+      <div style="color:rgba(255,255,255,.55);font-size:13px;letter-spacing:.22em;margin-bottom:2vh">{thank}</div>
+      <h2 style="font-family:var(--sans),var(--sans-zh);font-size:min(5vw,9vh);font-weight:200;line-height:1.1;color:#fff;margin-bottom:2vh">{thank_title}</h2>
+      <p style="font-family:var(--sans),var(--sans-zh);font-size:max(18px,1.2vw);line-height:1.6;color:rgba(255,255,255,.6);max-width:60ch;margin-bottom:5vh">{thank_sub}</p>
+    </div>
+    {items_html}
+    <div style="text-align:right;margin-top:4vh;color:rgba(255,255,255,.35);font-size:max(13px,.85vw);border-top:2px solid var(--accent);padding-top:2.5vh">{footer}</div>
+  </div>
+</section>""",
 }
 
+LAYOUT_CATALOG = {
+    "hero":    {"name":"封面","desc":"大标题+副标题+作者","fields":["title","subtitle","author","date","tagline"]},
+    "statement":{"name":"宣言页","desc":"左侧大标题+右侧说明","fields":["label","title","body"]},
+    "grid":    {"name":"网格卡片","desc":"2列卡片网格","fields":["section","section_title","items"]},
+    "whynow":  {"name":"三论点","desc":"3列并排论点卡片","fields":["label","title","reasons"]},
+    "split":   {"name":"左右对比","desc":"左右对比分析","fields":["left_label","left_body","right_label","right_body","label"]},
+    "closing": {"name":"结尾页","desc":"感谢+要点+底栏","fields":["thank","thank_title","thank_sub","tagline","summary_items","footer"]},
+}
 
-def extract_layout_templates():
-    """从 demo.html 提取每个布局的 HTML 模板"""
-    demo = ROOT / "presentations" / "demo.html"
-    if not demo.exists():
-        return {}
-    html = demo.read_text(encoding="utf-8")
-
-    templates = {}
-    seen = set()
-    for m in re.finditer(
-        r'<section[^>]*data-layout="(S\d+)"[^>]*data-animate="([^"]*)"[^>]*>(.*?)</section>',
-        html, re.S,
-    ):
-        lid, anim = m.group(1), m.group(2)
-        if lid in seen:
-            continue
-        seen.add(lid)
-        section = m.group(0)
-        cc = re.search(
-            r'<div class="canvas-card"[^>]*>(.*)</div>\s*</div>\s*</section>',
-            section, re.S,
+def _build_items_html(items):
+    """生成网格卡片 HTML"""
+    html = ""
+    for item in items:
+        html += (
+            '<div class="sub-card" style="background:var(--grey-1);padding:2.5vh 2vw;border-radius:6px">'
+            f'<p style="color:#fff;font-size:max(15px,1vw);line-height:1.5;font-weight:300">{item}</p>'
+            '</div>\n'
         )
-        if cc:
-            templates[lid] = {
-                "html": cc.group(0).rstrip("</div></section>").rstrip("</div>"),
-                "animate": anim,
-            }
-    return templates
+    return html
 
+def _build_reasons_html(reasons):
+    """生成三论点卡片 HTML"""
+    html = ""
+    for r in reasons:
+        title = r.get("title","")
+        desc = r.get("desc","")
+        html += (
+            '<div style="background:var(--grey-1);padding:3vh 2vw;border-radius:8px;border-left:3px solid var(--accent)">'
+            f'<h3 style="color:#fff;font-size:max(17px,1.2vw);font-weight:400;margin-bottom:1.5vh">{title}</h3>'
+            f'<p style="color:rgba(255,255,255,.7);font-size:max(15px,1vw);line-height:1.6;font-weight:300">{desc}</p>'
+            '</div>\n'
+        )
+    return html
 
-def build_presentation(spec_json: str, presentations_dir: Path, template_key="dark-tech"):
-    """从 JSON 规范构建演示稿。
+def _build_closing_items(items):
+    """生成结尾页要点 HTML"""
+    html = ""
+    for i, item in enumerate(items):
+        if isinstance(item, dict):
+            title = item.get("title","")
+            desc = item.get("desc","")
+        else:
+            title = str(item); desc = ""
+        color = "var(--accent)" if i == len(items)-1 else "rgba(255,255,255,.6)"
+        html += (
+            '<div style="display:grid;grid-template-columns:auto 1fr;gap:2vw;align-items:start;'
+            f'padding:2.2vh 0;border-top:1px solid var(--border-subtle)">'
+            f'<span style="font-family:var(--sans);font-weight:200;font-size:min(3.5vw,6vh);color:{color}">{i+1:02d}</span>'
+            '<div>'
+            f'<h3 style="color:#fff;font-size:max(17px,1.2vw);font-weight:400;margin-bottom:.8vh">{title}</h3>'
+            f'<p style="color:rgba(255,255,255,.7);font-size:max(15px,1vw);line-height:1.6;font-weight:300">{desc}</p>'
+            '</div></div>\n'
+        )
+    return html
 
-    spec_json 格式:
-    {
-      "title": "演讲标题",
-      "template": "dark-tech",
-      "slides": [
-        {"layout": "hero", "title": "...", "subtitle": "...", "author": "...", "date": "..."},
-        {"layout": "statement", "label": "PART 01", "title": "...", "body": "..."},
-        {"layout": "grid", "section": "场景", "items": ["点1", "点2", "点3", "点4"]},
-        {"layout": "closing", "thank_title": "感谢", "summary_items": ["要点1", "要点2", "要点3"]}
-      ]
-    }
-    """
-    spec = json.loads(spec_json) if isinstance(spec_json, str) else spec_json
-    title = spec.get("title", "新演示稿")
-    template_key = spec.get("template", template_key)
-    slides_spec = spec.get("slides", [])
+def build_presentation(spec_or_path, presentations_dir, template_key="dark-tech"):
+    """从 JSON 规范构建演示稿"""
+    if isinstance(spec_or_path, str) and spec_or_path.endswith(".json"):
+        spec = json.loads(Path(spec_or_path).read_text(encoding="utf-8"))
+    elif isinstance(spec_or_path, str):
+        spec = json.loads(spec_or_path)
+    else:
+        spec = spec_or_path
 
-    # 从模板初始化
-    from .template import BUILTIN_TEMPLATES, create_from_template
+    title = spec.get("title","演示稿")
+    slides_spec = spec.get("slides",[])
+    total = len(slides_spec)
 
+    # 读取模板 CSS
+    from .template import BUILTIN_TEMPLATES
+    tpl = BUILTIN_TEMPLATES.get(template_key, BUILTIN_TEMPLATES["dark-tech"])
     demo = ROOT / "presentations" / "demo.html"
     if not demo.exists():
         demo = ROOT.parent / "2026机器人入职各行各业-演示.html"
     if not demo.exists():
-        return {"ok": False, "error": "找不到模板文件"}
+        demos = list(presentations_dir.glob("*.html"))
+        demo = demos[0] if demos else None
 
-    tpl = BUILTIN_TEMPLATES.get(template_key, BUILTIN_TEMPLATES["dark-tech"])
-    html = demo.read_text(encoding="utf-8")
-    html = re.sub(r"<title>[^<]*</title>", f"<title>{title}</title>", html)
-    for var, val in [
-        ("--paper", tpl["paper"]),
-        ("--ink", tpl["ink"]),
-        ("--accent", tpl["accent"]),
-    ]:
-        html = re.sub(rf"{re.escape(var)}:#[0-9a-fA-F]{{6}}", f"{var}:{val}", html)
+    html = demo.read_text(encoding="utf-8") if demo else ""
+    if html:
+        # 只保留 <head> 里的 CSS，替换 <body> 内容
+        head_end = html.find("</head>")
+        if head_end < 0:
+            head_end = html.find("<body")
+        css_part = html[:head_end] if head_end > 0 else "<!DOCTYPE html>\n<html><head><meta charset='UTF-8'></head>"
+        html = re.sub(r"<title>[^<]*</title>", f"<title>{title}</title>", css_part)
+        for var, val in [("--paper",tpl["paper"]),("--ink",tpl["ink"]),("--accent",tpl["accent"])]:
+            html = re.sub(rf"{re.escape(var)}:#[0-9a-fA-F]{{6}}", f"{var}:{val}", html)
+    else:
+        html = "<!DOCTYPE html>\n<html><head><meta charset='UTF-8'></head>"
 
-    # 提取第一个 layout 模板作为 section 容器
-    first_section = re.search(
-        r'<section[^>]*class="slide[^"]*"[^>]*>.*?</section>', html, re.S
-    )
-    if not first_section:
-        return {"ok": False, "error": "模板无幻灯片"}
+    html += "\n<body>\n<div id='deck'>"
 
-    slide_template = first_section.group(0)
-    layout_templates = extract_layout_templates()
-
-    # 构建所有幻灯片
-    total = len(slides_spec)
-    sections_html = []
     for i, s in enumerate(slides_spec):
-        lname = s.get("layout", "statement")
-        linfo = LAYOUT_CATALOG.get(lname, LAYOUT_CATALOG["statement"])
-        lid = linfo["layout"]
-        lt = layout_templates.get(lid, {})
+        lname = s.get("layout","statement")
+        tpl_html = TEMPLATES.get(lname, TEMPLATES["statement"])
+        page = f"{i+1:02d} / {total:02d}"
 
-        slide_html = lt.get("html", slide_template) if lt else slide_template
+        # 公共变量
+        vars = {
+            "page": page,
+            "label": s.get("label",""),
+            "title": s.get("title",""),
+            "tagline": s.get("tagline",""),
+            "subtitle": s.get("subtitle",""),
+            "author": s.get("author",""),
+            "date": s.get("date",""),
+            "body": s.get("body",""),
+            "section": s.get("section",""),
+            "section_title": s.get("section_title", s.get("section","")),
+            "thank": s.get("thank","THANK YOU"),
+            "thank_title": s.get("thank_title","感谢"),
+            "thank_sub": s.get("thank_sub",""),
+            "footer": s.get("footer",""),
+            "left_label": s.get("left_label",""),
+            "left_body": s.get("left_body",""),
+            "right_label": s.get("right_label",""),
+            "right_body": s.get("right_body",""),
+            "items_html": "",
+            "reasons_html": "",
+        }
+        if "items" in s:
+            vars["items_html"] = _build_items_html(s["items"])
+        if "reasons" in s:
+            vars["reasons_html"] = _build_reasons_html(s["reasons"])
+        if "summary_items" in s:
+            vars["items_html"] = _build_closing_items(s["summary_items"])
 
-        # 替换占位内容
-        page_num = f"{i+1:02d} / {total:02d}"
-        slide_html = re.sub(r">\d{2} / \d{2}<", f">{page_num}<", slide_html)
-        slide_html = re.sub(r'data-layout="[^"]*"', f'data-layout="{lid}"', slide_html)
-        if lt:
-            slide_html = re.sub(
-                r'data-animate="[^"]*"', f'data-animate="{lt["animate"]}"', slide_html
-            )
+        slide_html = tpl_html.format(**vars)
+        html += "\n" + slide_html
 
-        # 按 layout 类型替换文本
-        text = " ".join(str(v) for v in s.values() if isinstance(v, str))
-        if lname == "hero":
-            slide_html = simple_replace(slide_html, s)
-        elif lname == "closing":
-            slide_html = build_closing_slide(slide_html, s)
-        elif lname == "grid" and "items" in s:
-            slide_html = build_grid_slide(slide_html, s)
-        else:
-            slide_html = simple_replace(slide_html, s)
+    html += "\n</div>\n<div id='nav'></div>\n</body>\n</html>"
 
-        sections_html.append(
-            f'<section class="slide dark trans-fade" data-layout="{lid}" '
-            f'data-animate="{lt.get("animate", "fade")}" '
-            f'style="font-size:11px;color:#fff;background:#000;line-height:1.1">'
-            f'\n  <div class="canvas-card">\n{slide_html}\n  </div>\n'
-            f"</section>"
-        )
-
-    # 替换 deck 中的幻灯片
-    old_sections = re.findall(
-        r'<section[^>]*class="slide[^"]*"[^>]*>.*?</section>', html, re.S
-    )
-    if old_sections:
-        first = old_sections[0]
-        last = old_sections[-1]
-        html = html[: html.find(first)] + "\n".join(sections_html) + html[html.find(last) + len(last):]
-
-    name = title.replace(" ", "-").replace("/", "-") + ".html"
+    name = title.replace(" ","-").replace("/","-").replace("·","-") + ".html"
+    name = re.sub(r"-+","-", name)
     result = save_file(presentations_dir, name, html)
     return result
-
-
-def simple_replace(html, fields):
-    """简单文本替换: 把 field value 填入第一个匹配的标题/段落"""
-    for key, val in fields.items():
-        if not isinstance(val, str) or len(val) < 2:
-            continue
-        # 替换第一个 h1/h2/span
-        for tag in ["h1", "h2"]:
-            pattern = rf"<{tag}[^>]*>.*?</{tag}>"
-            m = re.search(pattern, html)
-            if m:
-                html = html[: m.start()] + f'<{tag} style="color:#fff">{val}</{tag}>' + html[m.end():]
-                break
-        else:
-            # 替换第一个 span
-            m = re.search(r"<span[^>]*>.*?</span>", html)
-            if m:
-                html = html[: m.start()] + f'<span style="color:rgba(255,255,255,.85)">{val}</span>' + html[m.end():]
-    return html
-
-
-def build_grid_slide(html, s):
-    """构建网格卡片 slide"""
-    items = s.get("items", [])
-    section = s.get("section", "")
-    # 替换 section 标签
-    html = re.sub(r'(SCENE|场景)\s*[·•]\s*\w+', section, html, count=1)
-    # 构建卡片
-    cards = ""
-    for i, item in enumerate(items):
-        cards += (
-            f'<div class="sub-card" style="padding:2vh 1.5vw">'
-            f'<span style="color:var(--accent);font-weight:600">{i+1:02d}</span>'
-            f'<p style="color:#fff;margin-top:1vh">{item}</p></div>\n'
-        )
-    # 替换第一个 sub-card 块
-    first_card = re.search(r'<div class="sub-card"[^>]*>.*?</div>\s*</div>', html, re.S)
-    if first_card and cards:
-        html = html[: first_card.start()] + cards + html[first_card.end():]
-    return html
-
-
-def build_closing_slide(html, s):
-    """构建结尾页"""
-    items = s.get("summary_items", [])
-    thank = s.get("thank_title", "感谢聆听")
-    thank_sub = s.get("thank_sub", "")
-
-    html = re.sub(r"(感谢聆听|THANK YOU)", thank, html, count=1)
-    if thank_sub:
-        html = re.sub(r"(欢迎交流|Welcome)", thank_sub, html, count=1)
-
-    # 替换要点
-    old_items = re.findall(
-        r'<h3[^>]*>(.*?)</h3>\s*<p[^>]*>(.*?)</p>', html, re.S
-    )
-    for i, (_, _) in enumerate(old_items):
-        if i < len(items):
-            item = items[i]
-            if isinstance(item, dict):
-                html = re.sub(
-                    rf"<h3[^>]*>.*?</h3>",
-                    f'<h3 style="color:#fff">{item.get("title","")}</h3>',
-                    html,
-                    count=1,
-                )
-                html = re.sub(
-                    rf"<p[^>]*>.*?</p>",
-                    f'<p style="color:rgba(255,255,255,.7)">{item.get("desc","")}</p>',
-                    html,
-                    count=1,
-                )
-            else:
-                html = re.sub(
-                    rf"<h3[^>]*>.*?</h3>",
-                    f'<h3 style="color:#fff">{item}</h3>',
-                    html,
-                    count=1,
-                )
-    return html
